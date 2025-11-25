@@ -1,48 +1,7 @@
-# strategy.py
-"""
-Blueprint Trader AI – TOP-DOWN strategy logic.
-
-Implements a confluence-based HTF swing framework inspired by strategy_spec.md,
-with an explicit top-down flow:
-
-1) Monthly & Weekly:
-   - Build S/R from swing highs/lows (clustered levels).
-   - Identify basic supply/demand zone *from the last weekly impulse origin*.
-   - Infer Weekly trend (HH/HL vs LH/LL).
-
-2) Weekly Fibonacci:
-   - Identify last meaningful Weekly impulse leg in direction of trend.
-   - Compute Weekly golden pocket (0.618–0.796) using body → wick.
-
-3) Daily context:
-   - Infer Daily structure (trend / range).
-   - Compute Daily range & location.
-   - Optionally find a Daily impulse & golden pocket (secondary fib).
-   - Detect Daily equal highs/lows liquidity pools.
-   - Detect structural frameworks (H&S, inverse H&S, Bullish N, Bearish V)
-     in context with HTF S/R + OB + Fibonacci.
-
-4) 4H:
-   - Confirmation ONLY: simple BOS-style breakout on H4.
-
-Confluence score (0–7):
-
-  1. HTF bias (Monthly+Weekly+Daily direction alignment or valid HTF reversal)
-  2. Location (Monthly/Weekly/Daily S/R edges + HTF supply/demand)
-  3. Fibonacci (Weekly primary, Daily secondary)
-  4. Liquidity (equal highs/lows, magnets)
-  5. 4H confirmation (BOS)
-  6. R/R (from entry & SL)
-  7. Structure (Weekly & Daily structure + frameworks fit the trade direction)
-
-Only when confluence >= threshold and 4H confirms do we create an ACTIVE trade.
-Otherwise high-confluence setups stay as IN_PROGRESS (watchlist).
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Literal, Dict
+from typing import Optional, List, Tuple, Dict
 
 from data import get_ohlcv
 from config import (
@@ -54,18 +13,12 @@ from config import (
     SIGNAL_MODE,
 )
 
-Direction = Literal["bullish", "bearish"]
-
-
-# ===== Result dataclass =====
-
 
 @dataclass
 class ScanResult:
     symbol: str
-    direction: Direction
+    direction: str  # "bullish" or "bearish"
     confluence_score: int
-    timeframe: str  # e.g. "Weekly→Daily with H4 confirmation"
     htf_bias: str
     location_note: str
     fib_note: str
@@ -74,1229 +27,1267 @@ class ScanResult:
     confirmation_note: str
     rr_note: str
     summary_reason: str
-    # trade fields
+    status: str = "scan_only"  # "scan_only", "in_progress", "active"
     entry: Optional[float] = None
     stop_loss: Optional[float] = None
     tp1: Optional[float] = None
     tp2: Optional[float] = None
     tp3: Optional[float] = None
-    rr1: Optional[float] = None
-    rr2: Optional[float] = None
-    rr3: Optional[float] = None
-    status: Optional[str] = None  # "active" / "in_progress" / None
-
-    # lifecycle flags for TP/SL
-    tp1_hit: bool = False
-    tp2_hit: bool = False
-    tp3_hit: bool = False
-    sl_hit: bool = False
-    is_closed: bool = False
+    tp4: Optional[float] = None
+    tp5: Optional[float] = None
 
 
-# ===== Basic candle helpers =====
+# ===== Generic helpers ======================================================
 
 
-def _body_price(c: Dict[str, float]) -> float:
+def _safe_min_max(candles: List[dict]) -> Tuple[float, float]:
+    lows = [c["low"] for c in candles]
+    highs = [c["high"] for c in candles]
+    if not lows or not highs:
+        return float("nan"), float("nan")
+    return min(lows), max(highs)
+
+
+def _percent_distance(a: float, b: float) -> float:
+    if a == 0:
+        return float("inf")
+    return abs(b - a) / abs(a) * 100.0
+
+
+def _find_pivots(
+    candles: List[dict],
+    lookback: int = 2,
+) -> Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]:
     """
-    Return the 'start' of the candle body for fib anchor:
-    - If candle is bullish: use open (start of up-move).
-    - If bearish or doji-ish: use close (start of down-move).
+    Find simple swing highs/lows using a symmetric lookback window.
+
+    Returns:
+        highs: list of (index, price)
+        lows:  list of (index, price)
     """
-    o = c["open"]
-    cl = c["close"]
-    return o if cl > o else cl
+    highs: List[Tuple[int, float]] = []
+    lows: List[Tuple[int, float]] = []
+
+    n = len(candles)
+    if n < 2 * lookback + 1:
+        return highs, lows
+
+    for i in range(lookback, n - lookback):
+        hi = candles[i]["high"]
+        lo = candles[i]["low"]
+
+        if all(hi > candles[j]["high"] for j in range(i - lookback, i + lookback + 1) if j != i):
+            highs.append((i, hi))
+
+        if all(lo < candles[j]["low"] for j in range(i - lookback, i + lookback + 1) if j != i):
+            lows.append((i, lo))
+
+    return highs, lows
 
 
-def _is_bullish(c: Dict[str, float]) -> bool:
-    return c["close"] > c["open"]
+def _infer_trend(candles: List[dict]) -> str:
+    """
+    Simple HH/HL vs LH/LL based trend inference using pivots.
+    Returns "bullish", "bearish", or "mixed".
+    """
+    highs, lows = _find_pivots(candles)
+    if len(highs) < 2 or len(lows) < 2:
+        # Fallback: compare last close to close N bars ago
+        if len(candles) < 5:
+            return "mixed"
+        if candles[-1]["close"] > candles[-5]["close"]:
+            return "bullish"
+        if candles[-1]["close"] < candles[-5]["close"]:
+            return "bearish"
+        return "mixed"
+
+    # Use last two meaningful highs and lows
+    last_highs = highs[-2:]
+    last_lows = lows[-2:]
+
+    _, h1 = last_highs[0]
+    _, h2 = last_highs[1]
+    _, l1 = last_lows[0]
+    _, l2 = last_lows[1]
+
+    if h2 > h1 and l2 > l1:
+        return "bullish"
+    if h2 < h1 and l2 < l1:
+        return "bearish"
+    return "mixed"
 
 
-def _is_bearish(c: Dict[str, float]) -> bool:
-    return c["close"] < c["open"]
+def _infer_daily_trend(daily_candles: List[dict]) -> str:
+    """
+    Exposed for backtest module.
+    """
+    return _infer_trend(daily_candles)
 
 
-# ===== Swing detection =====
+def _range_position(
+    candles: List[dict],
+    price: float,
+) -> Tuple[Tuple[float, float], str, bool]:
+    """
+    Compute [low, high] of a window and whether price is in lower/upper edge or mid.
+    Returns: (range_low, range_high), note, edge_flag
+    """
+    r_low, r_high = _safe_min_max(candles)
+    if r_low != r_low or r_high != r_high:  # NaN check
+        return (r_low, r_high), "range: N/A", False
+
+    span = r_high - r_low
+    if span <= 0:
+        return (r_low, r_high), f"range: {r_low:.5f}–{r_high:.5f}", False
+
+    lower_band = r_low + span * 0.33
+    upper_band = r_low + span * 0.67
+
+    if price <= lower_band:
+        note = f"price in lower edge of range ({r_low:.5f}–{r_high:.5f})"
+        return (r_low, r_high), note, True
+    elif price >= upper_band:
+        note = f"price in upper edge of range ({r_low:.5f}–{r_high:.5f})"
+        return (r_low, r_high), note, True
+    else:
+        note = f"price mid-range ({r_low:.5f}–{r_high:.5f}), no clear edge"
+        return (r_low, r_high), note, False
+
+
+# ===== S/R & Supply/Demand helpers ==========================================
+
+
+def _cluster_prices(prices: List[float], tolerance_pct: float = 0.25) -> List[Tuple[float, int]]:
+    """
+    Cluster nearby prices (within tolerance_pct %) into levels and count taps.
+    Returns list of (level_price, taps).
+    """
+    clusters: List[dict] = []
+    for p in sorted(prices):
+        placed = False
+        for cl in clusters:
+            if _percent_distance(cl["price"], p) <= tolerance_pct:
+                cl["sum"] += p
+                cl["count"] += 1
+                cl["price"] = cl["sum"] / cl["count"]
+                placed = True
+                break
+        if not placed:
+            clusters.append({"price": p, "sum": p, "count": 1})
+    return [(cl["price"], cl["count"]) for cl in clusters]
+
+
+def _build_sr_levels(candles: List[dict], tolerance_pct: float = 0.25) -> List[dict]:
+    """
+    Build basic S/R levels from pivots and cluster them.
+    Each level: {"price": float, "taps": int, "tier": int}
+    Tier 1: >=4 taps, Tier 2: >=2 taps, Tier 3: 1 tap.
+    """
+    highs, lows = _find_pivots(candles)
+    prices = [p for _, p in highs] + [p for _, p in lows]
+    if not prices:
+        return []
+
+    clustered = _cluster_prices(prices, tolerance_pct)
+    levels: List[dict] = []
+    for level_price, taps in clustered:
+        if taps >= 4:
+            tier = 1
+        elif taps >= 2:
+            tier = 2
+        else:
+            tier = 3
+        levels.append({"price": level_price, "taps": taps, "tier": tier})
+    return levels
+
+
+def _nearest_sr_level(levels: List[dict], price: float) -> Optional[dict]:
+    """
+    Pick nearest S/R level to price and annotate with distance in %.
+    """
+    if not levels or price != price:
+        return None
+    best = None
+    best_dist = float("inf")
+    for lvl in levels:
+        dist = _percent_distance(price, lvl["price"])
+        if dist < best_dist:
+            best_dist = dist
+            best = lvl
+    if best is None:
+        return None
+    level_copy = dict(best)
+    level_copy["dist_pct"] = best_dist
+    return level_copy
+
+
+def _approx_near_zone(
+    candles: List[dict],
+    price: float,
+    zone_type: str,  # "supply" or "demand"
+    lookback: int = 80,
+) -> Optional[Tuple[float, float, float]]:
+    """
+    Approximate nearest supply/demand zone using candle ranges:
+    - For supply: use candles whose mid is above price.
+    - For demand: use candles whose mid is below price.
+    Returns (zone_low, zone_high, distance_pct) or None.
+    """
+    if not candles or price != price:
+        return None
+
+    subset = candles[-min(len(candles), lookback):]
+    candidates: List[Tuple[float, float, float]] = []
+
+    for c in subset:
+        low = c["low"]
+        high = c["high"]
+        mid = (low + high) / 2.0
+
+        if zone_type == "supply":
+            if mid <= price:
+                continue
+            dist_pct = _percent_distance(price, mid)
+        else:
+            if mid >= price:
+                continue
+            dist_pct = _percent_distance(price, mid)
+
+        candidates.append((dist_pct, low, high))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda x: x[0])
+    dist_pct, z_low, z_high = candidates[0]
+    return z_low, z_high, dist_pct
+
+
+# ===== Bias / fib / liquidity / structure / confirmation / R/R ==============
+
+
+def _pick_direction_from_bias(
+    monthly_trend: str,
+    weekly_trend: str,
+    daily_trend: str,
+) -> Tuple[str, str, bool]:
+    """
+    Decide trade direction + descriptive HTF bias note + boolean flag whether bias is 'strong enough'
+    according to the Blueprint spec (weekly + daily agree, monthly as context).
+    """
+    note_parts: List[str] = []
+    strong = False
+    direction = "neutral"
+
+    # Primary: Weekly & Daily alignment
+    if weekly_trend == daily_trend and weekly_trend in ("bullish", "bearish"):
+        direction = weekly_trend
+        strong = True
+        if monthly_trend == weekly_trend:
+            note_parts.append(
+                f"HTF trend alignment: Monthly={monthly_trend}, Weekly={weekly_trend}, Daily={daily_trend}."
+            )
+        else:
+            note_parts.append(
+                f"HTF reversal bias: Monthly={monthly_trend}, Weekly={weekly_trend}, Daily={daily_trend}."
+            )
+    else:
+        # mixed / transitional
+        if weekly_trend in ("bullish", "bearish"):
+            direction = weekly_trend
+        elif daily_trend in ("bullish", "bearish"):
+            direction = daily_trend
+        else:
+            direction = "bullish"  # arbitrary fallback
+
+        note_parts.append(
+            f"HTF bias mixed: Monthly={monthly_trend}, Weekly={weekly_trend}, Daily={daily_trend} (no clean alignment)."
+        )
+        strong = False
+
+    return direction, " ".join(note_parts), strong
+
+
+def _location_context(
+    monthly_candles: List[dict],
+    weekly_candles: List[dict],
+    daily_candles: List[dict],
+    price: float,
+    direction: str,
+) -> Tuple[str, bool]:
+    """
+    Location is where we enforce Blueprint's polarity:
+    - Shorts should come from resistance / supply (upper side).
+    - Longs should come from support / demand (lower side).
+    """
+    notes: List[str] = []
+    ok_flags: List[bool] = []
+
+    zone_type = "supply" if direction == "bearish" else "demand"
+
+    # === Monthly ===
+    (_mn_low, _mn_high), mn_note, mn_edge = _range_position(monthly_candles, price)
+    notes.append(f"Monthly: {mn_note}.")
+    if mn_edge:
+        ok_flags.append(True)
+
+    mn_levels = _build_sr_levels(monthly_candles) if monthly_candles else []
+    mn_near = _nearest_sr_level(mn_levels, price)
+    if mn_near:
+        notes.append(
+            f"Monthly: nearest Tier {mn_near['tier']} S/R around {mn_near['price']:.5f} "
+            f"(≈{mn_near['taps']} taps, dist≈{mn_near['dist_pct']:.2f}%)."
+        )
+        if mn_near["dist_pct"] <= 0.30:
+            ok_flags.append(True)
+
+    mn_zone = _approx_near_zone(monthly_candles, price, zone_type, lookback=80)
+    if mn_zone:
+        z_low, z_high, z_dist = mn_zone
+        side = "below" if zone_type == "supply" else "above"
+        notes.append(
+            f"Monthly: current price {side} {zone_type} zone around [{z_low:.5f}–{z_high:.5f}] "
+            f"(dist≈{z_dist:.2f}%)."
+        )
+        if z_dist <= 0.75:
+            ok_flags.append(True)
+
+    # === Weekly ===
+    (_wk_low, _wk_high), wk_note, wk_edge = _range_position(weekly_candles, price)
+    notes.append(f"Weekly: {wk_note}.")
+    if wk_edge:
+        ok_flags.append(True)
+
+    wk_levels = _build_sr_levels(weekly_candles) if weekly_candles else []
+    wk_near = _nearest_sr_level(wk_levels, price)
+    if wk_near:
+        notes.append(
+            f"Weekly: nearest Tier {wk_near['tier']} S/R around {wk_near['price']:.5f} "
+            f"(≈{wk_near['taps']} taps, dist≈{wk_near['dist_pct']:.2f}%)."
+        )
+        if wk_near["dist_pct"] <= 0.30:
+            ok_flags.append(True)
+
+    wk_zone = _approx_near_zone(weekly_candles, price, zone_type, lookback=120)
+    if wk_zone:
+        z_low, z_high, z_dist = wk_zone
+        side = "below" if zone_type == "supply" else "above"
+        notes.append(
+            f"Weekly: current price {side} {zone_type} zone around [{z_low:.5f}–{z_high:.5f}] "
+            f"(dist≈{z_dist:.2f}%)."
+        )
+        if z_dist <= 0.75:
+            ok_flags.append(True)
+
+    # === Daily ===
+    support_side = False
+    resistance_side = False
+
+    (d_low, d_high), d_note, d_edge = _range_position(daily_candles, price)
+    notes.append(f"Daily: {d_note}.")
+
+    # Decide if we're on support or resistance *side* of the daily range
+    if d_low == d_low and d_high == d_high:  # not NaN
+        mid = (d_low + d_high) / 2.0
+        if price > mid:
+            notes.append("Daily: price in upper half of range, acting as resistance region.")
+            resistance_side = True
+        else:
+            notes.append("Daily: price in lower half of range, acting as support region.")
+            support_side = True
+
+    if d_edge:
+        ok_flags.append(True)
+
+    d_levels = _build_sr_levels(daily_candles) if daily_candles else []
+    d_near = _nearest_sr_level(d_levels, price)
+    if d_near:
+        notes.append(
+            f"Daily: nearest Tier {d_near['tier']} S/R around {d_near['price']:.5f} "
+            f"(≈{d_near['taps']} taps, dist≈{d_near['dist_pct']:.2f}%)."
+        )
+        if d_near["dist_pct"] <= 0.30:
+            ok_flags.append(True)
+
+    d_zone = _approx_near_zone(daily_candles, price, zone_type, lookback=80)
+    if d_zone:
+        z_low, z_high, z_dist = d_zone
+        side = "below" if zone_type == "supply" else "above"
+        notes.append(
+            f"Daily: current price {side} {zone_type} zone around [{z_low:.5f}–{z_high:.5f}] "
+            f"(dist≈{z_dist:.2f}%)."
+        )
+        if z_dist <= 0.75:
+            ok_flags.append(True)
+
+    # === Directional filter (Blueprint polarity) ===
+    has_zone = any(z is not None for z in (mn_zone, wk_zone, d_zone))
+
+    directional_ok = False
+    if direction == "bullish":
+        # Longs: only like it when we are on support side (lower half)
+        # and anchored by edge / HTF edges / demand zones.
+        if support_side and (d_edge or mn_edge or wk_edge or has_zone):
+            directional_ok = True
+    elif direction == "bearish":
+        # Shorts: only like it when we are on resistance side (upper half)
+        # and anchored by edge / HTF edges / supply zones.
+        if resistance_side and (d_edge or mn_edge or wk_edge or has_zone):
+            directional_ok = True
+
+    ok = directional_ok
+    return " ".join(notes), ok
+
+
+def _find_last_swing_leg_for_fib(
+    candles: List[dict],
+    direction: str,
+) -> Optional[Tuple[float, float]]:
+    """
+    Use pivots to approximate the last impulsive leg for Fib retracement.
+    Returns (leg_low, leg_high) in price terms, or None if not found.
+    """
+    highs, lows = _find_pivots(candles)
+    if not highs or not lows:
+        return None
+
+    if direction == "bullish":
+        # low -> high leg
+        hi_idx, hi_price = highs[-1]
+        candidate_lows = [pl for pl in lows if pl[0] < hi_idx]
+        if not candidate_lows:
+            return None
+        lo_idx, lo_price = candidate_lows[-1]
+        if lo_price >= hi_price:
+            return None
+        return lo_price, hi_price
+    else:
+        # bearish: high -> low leg (we still return low<high; formula handles direction)
+        lo_idx, lo_price = lows[-1]
+        candidate_highs = [ph for ph in highs if ph[0] < lo_idx]
+        if not candidate_highs:
+            return None
+        hi_idx, hi_price = candidate_highs[-1]
+        if hi_price <= lo_price:
+            return None
+        return lo_price, hi_price
+
+
+def _fib_context(
+    weekly_candles: List[dict],
+    daily_candles: List[dict],
+    direction: str,
+    price: float,
+) -> Tuple[str, bool]:
+    """
+    Fibonacci logic on WEEKLY & DAILY only, as per Blueprint:
+    - Use meaningful impulse legs (body->wick approximation via pivots).
+    - Compute golden pockets on Weekly and Daily.
+    - Fib confluence = True if price is in at least one golden pocket.
+    """
+    notes: List[str] = []
+    fib_ok = False
+
+    # --- Weekly leg ---
+    weekly_leg = _find_last_swing_leg_for_fib(weekly_candles, direction) if weekly_candles else None
+    if weekly_leg:
+        w_low, w_high = weekly_leg
+        if direction == "bullish":
+            w_gp_low = w_low + (w_high - w_low) * 0.618
+            w_gp_high = w_low + (w_high - w_low) * 0.796
+        else:
+            w_gp_low = w_high - (w_high - w_low) * 0.796
+            w_gp_high = w_high - (w_high - w_low) * 0.618
+
+        w_in_gp = w_gp_low <= price <= w_gp_high
+        if w_in_gp:
+            notes.append(
+                f"Weekly: price inside golden pocket ({w_gp_low:.5f}–{w_gp_high:.5f}) of last impulse leg."
+            )
+            fib_ok = True
+        else:
+            notes.append(
+                f"Weekly: price outside golden pocket ({w_gp_low:.5f}–{w_gp_high:.5f}) of last impulse leg "
+                f"(current={price:.5f})."
+            )
+    else:
+        notes.append("Weekly: no clear impulse leg for Fibonacci.")
+
+    # --- Daily leg ---
+    daily_leg = _find_last_swing_leg_for_fib(daily_candles, direction) if daily_candles else None
+    if daily_leg:
+        d_low, d_high = daily_leg
+        if direction == "bullish":
+            d_gp_low = d_low + (d_high - d_low) * 0.618
+            d_gp_high = d_low + (d_high - d_low) * 0.796
+        else:
+            d_gp_low = d_high - (d_high - d_low) * 0.796
+            d_gp_high = d_high - (d_high - d_low) * 0.618
+
+        d_in_gp = d_gp_low <= price <= d_gp_high
+        if d_in_gp:
+            notes.append(
+                f"Daily: price inside golden pocket ({d_gp_low:.5f}–{d_gp_high:.5f}) of last impulse leg."
+            )
+            fib_ok = True
+        else:
+            notes.append(
+                f"Daily: price outside golden pocket ({d_gp_low:.5f}–{d_gp_high:.5f}) of last impulse leg "
+                f"(current={price:.5f})."
+            )
+    else:
+        notes.append("Daily: no clear impulse leg for Fibonacci.")
+
+    # If neither leg exists → no Fib confluence.
+    if not weekly_leg and not daily_leg:
+        return "Weekly/Daily: no clear impulse legs for Fibonacci (skipping Fib confluence).", False
+
+    return " ".join(notes), fib_ok
+
+
+def _daily_liquidity_context(
+    daily_candles: List[dict],
+    price: float,
+) -> Tuple[str, bool]:
+    """
+    Liquidity & liquidity flows (Daily):
+    - External liquidity: extremes of the sampled range.
+    - Internal liquidity: equal highs / equal lows clusters.
+    - Sweeps: last candle runs external high/low and closes back inside.
+    """
+    if not daily_candles:
+        return "Daily: no liquidity data.", False
+
+    notes: List[str] = []
+    ok = False
+
+    lows = [c["low"] for c in daily_candles]
+    highs = [c["high"] for c in daily_candles]
+    low_ext = min(lows)
+    high_ext = max(highs)
+
+    last = daily_candles[-1]
+
+    # --- External liquidity sweeps (liquidity flows idea) ---
+    if len(daily_candles) > 1:
+        prev_lows = lows[:-1]
+        prev_highs = highs[:-1]
+        prev_low_ext = min(prev_lows)
+        prev_high_ext = max(prev_highs)
+
+        swept_down = last["low"] < prev_low_ext and last["close"] > prev_low_ext
+        swept_up = last["high"] > prev_high_ext and last["close"] < prev_high_ext
+
+        if swept_down:
+            notes.append(
+                f"Daily: recent sweep of external liquidity below {prev_low_ext:.5f} with close back above the level."
+            )
+            ok = True
+        elif swept_up:
+            notes.append(
+                f"Daily: recent sweep of external liquidity above {prev_high_ext:.5f} with close back below the level."
+            )
+            ok = True
+
+    # --- External liquidity magnets (next targets) ---
+    dist_high = _percent_distance(price, high_ext)
+    dist_low = _percent_distance(price, low_ext)
+
+    if dist_high < dist_low:
+        pool = high_ext
+        side = "above"
+    else:
+        pool = low_ext
+        side = "below"
+
+    notes.append(
+        f"Daily: main external liquidity pool {side} current price around {pool:.5f}."
+    )
+
+    near_external = min(dist_high, dist_low) <= 1.0
+
+    if near_external:
+        ok = True
+
+    # --- Internal equal highs / equal lows (internal liquidity) ---
+    highs_piv, lows_piv = _find_pivots(daily_candles)
+
+    def _find_equal_level(pivots: List[Tuple[int, float]], tol_pct: float = 0.05) -> Optional[float]:
+        if len(pivots) < 2:
+            return None
+        n = len(pivots)
+        for i in range(max(0, n - 8), n):
+            for j in range(i + 1, n):
+                p1 = pivots[i][1]
+                p2 = pivots[j][1]
+                if _percent_distance(p1, p2) <= tol_pct:
+                    return (p1 + p2) / 2.0
+        return None
+
+    eq_high = _find_equal_level(highs_piv)
+    eq_low = _find_equal_level(lows_piv)
+
+    if eq_high is not None:
+        notes.append(
+            f"Daily: internal equal highs cluster around {eq_high:.5f} (liquidity)."
+        )
+        if _percent_distance(price, eq_high) <= 1.0:
+            ok = True
+
+    if eq_low is not None:
+        notes.append(
+            f"Daily: internal equal lows cluster around {eq_low:.5f} (liquidity)."
+        )
+        if _percent_distance(price, eq_low) <= 1.0:
+            ok = True
+
+    note = " ".join(notes)
+    return note, ok
+
+
+# ===== Structural frameworks (Daily) ========================================
 
 
 def _find_swings(
-    candles: List[Dict[str, float]],
-    lookback: int = 2,
-) -> List[Tuple[int, str, float]]:
+    candles: List[Dict],
+    left: int = 2,
+    right: int = 2,
+) -> Tuple[List[int], List[int]]:
     """
-    Very simple fractal-based swing detector on highs/lows.
-
-    Returns list of (index, 'high'/'low', price) sorted by index.
+    Find swing highs and swing lows indices in a candle list.
+    swing high: high >= highs of 'left' candles before and 'right' candles after.
+    swing low: low <= lows of 'left' candles before and 'right' candles after.
     """
+    highs = [c["high"] for c in candles]
+    lows = [c["low"] for c in candles]
     n = len(candles)
-    swings: List[Tuple[int, str, float]] = []
 
-    if n < 2 * lookback + 1:
-        return swings
+    swing_highs: List[int] = []
+    swing_lows: List[int] = []
 
-    for i in range(lookback, n - lookback):
-        high = candles[i]["high"]
-        low = candles[i]["low"]
-
-        # swing high
-        if all(high >= candles[i - k]["high"] for k in range(1, lookback + 1)) and \
-           all(high >= candles[i + k]["high"] for k in range(1, lookback + 1)):
-            swings.append((i, "high", high))
-
-        # swing low
-        if all(low <= candles[i - k]["low"] for k in range(1, lookback + 1)) and \
-           all(low <= candles[i + k]["low"] for k in range(1, lookback + 1)):
-            swings.append((i, "low", low))
-
-    swings.sort(key=lambda x: x[0])
-    return swings
-
-
-# ===== Trend inference (generic) =====
-
-
-def _infer_trend(
-    candles: List[Dict[str, float]],
-    swings: List[Tuple[int, str, float]],
-    label: str,
-) -> Tuple[str, str]:
-    """
-    Infer trend from last few swing highs/lows.
-
-    Returns:
-      (trend, note)
-      trend in {"bullish", "bearish", "range"}
-    """
-    if len(swings) < 4:
-        return "range", f"{label} structure unclear (not enough swings)."
-
-    last_swings = swings[-6:]
-    highs = [s for s in last_swings if s[1] == "high"]
-    lows = [s for s in last_swings if s[1] == "low"]
-
-    if len(highs) < 2 or len(lows) < 2:
-        return "range", f"{label} structure lacks enough swing highs/lows."
-
-    h1, h2 = highs[-2], highs[-1]
-    l1, l2 = lows[-2], lows[-1]
-
-    if h2[2] > h1[2] and l2[2] > l1[2]:
-        note = (
-            f"{label} HH/HL structure "
-            f"(highs {h1[2]:.5f} → {h2[2]:.5f}, "
-            f"lows {l1[2]:.5f} → {l2[2]:.5f})."
-        )
-        return "bullish", note
-    elif h2[2] < h1[2] and l2[2] < l1[2]:
-        note = (
-            f"{label} LH/LL structure "
-            f"(highs {h1[2]:.5f} → {h2[2]:.5f}, "
-            f"lows {l1[2]:.5f} → {l2[2]:.5f})."
-        )
-        return "bearish", note
-    else:
-        return "range", f"{label} swings mixed (no clean HH/HL or LH/LL)."
-
-
-# ===== Range & location (generic) =====
-
-
-def _range_and_location(
-    candles: List[Dict[str, float]],
-    close_price: float,
-    label: str,
-) -> Tuple[float, float, float, str, bool]:
-    """
-    Compute basic range and where current price sits in it for a timeframe.
-
-    Returns:
-      (range_low, range_high, position, location_note, is_edge)
-      position in [0,1]: 0 = range_low, 1 = range_high
-      is_edge = True if near bottom/top (good location), False if mid-range.
-    """
-    highs = [c["high"] for c in candles]
-    lows = [c["low"] for c in candles]
-
-    range_high = max(highs)
-    range_low = min(lows)
-    span = range_high - range_low
-    if span <= 0:
-        return range_low, range_high, 0.5, f"{label} range degenerated (no span).", False
-
-    pos = (close_price - range_low) / span  # 0..1
-
-    # Define edges based on signal mode
-    if SIGNAL_MODE == "aggressive":
-        lower_edge = 0.35
-        upper_edge = 0.65
-    else:  # "standard"
-        lower_edge = 0.25
-        upper_edge = 0.75
-
-    if pos <= lower_edge:
-        location_note = (
-            f"{label}: price in lower edge of range "
-            f"({range_low:.5f}–{range_high:.5f}), near support area."
-        )
-        is_edge = True
-    elif pos >= upper_edge:
-        location_note = (
-            f"{label}: price in upper edge of range "
-            f"({range_low:.5f}–{range_high:.5f}), near resistance area."
-        )
-        is_edge = True
-    else:
-        location_note = (
-            f"{label}: price mid-range "
-            f"({range_low:.5f}–{range_high:.5f}), no clear edge."
-        )
-        is_edge = False
-
-    return range_low, range_high, pos, location_note, is_edge
-
-
-# ===== S/R from swings (clustered, tiered) =====
-
-
-def _sr_context_from_swings(
-    candles: List[Dict[str, float]],
-    swings: List[Tuple[int, str, float]],
-    close_price: float,
-    label: str,
-) -> Tuple[bool, str]:
-    """
-    Build horizontal S/R from clustered swing highs/lows, with a notion of "tier":
-
-      - Tier 1: Monthly, 4+ taps (strong multi-year level).
-      - Tier 2: Monthly/Weekly, 2–3 taps (solid HTF level).
-      - Tier 3: Daily, 2+ taps (local S/R refinement).
-
-    We then check if current price is near any Tier 1–2 level on HTF (Monthly/Weekly),
-    or Tier 2–3 on Daily.
-
-    A level is also labelled by role:
-      - Mostly highs → resistance bias.
-      - Mostly lows → support bias.
-      - Mixed → flip level.
-    """
-    if not swings:
-        return False, f"{label}: no clear swings yet for S/R."
-
-    # Cluster levels by price proximity
-    raw = sorted(swings, key=lambda s: s[2])
-    clusters: List[Dict] = []
-    # tolerance ~0.15% of price
-    for idx, kind, price in raw:
-        if not clusters:
-            clusters.append({
-                "center": price,
-                "taps": 1,
-                "high_hits": 1 if kind == "high" else 0,
-                "low_hits": 1 if kind == "low" else 0,
-            })
-            continue
-        last = clusters[-1]
-        center = last["center"]
-        tol = center * 0.0015
-        if abs(price - center) <= tol:
-            # same cluster
-            new_taps = last["taps"] + 1
-            new_center = (center * last["taps"] + price) / new_taps
-            last["center"] = new_center
-            last["taps"] = new_taps
-            if kind == "high":
-                last["high_hits"] += 1
-            else:
-                last["low_hits"] += 1
-        else:
-            clusters.append({
-                "center": price,
-                "taps": 1,
-                "high_hits": 1 if kind == "high" else 0,
-                "low_hits": 1 if kind == "low" else 0,
-            })
-
-    if not clusters:
-        return False, f"{label}: no raw S/R clusters."
-
-    # Assign tier & role
-    for c in clusters:
-        taps = c["taps"]
-        # tier
-        if label == "Monthly" and taps >= 4:
-            tier = 1
-        elif label in ("Monthly", "Weekly") and taps >= 2:
-            tier = 2
-        else:
-            # Daily or weaker
-            tier = 3
-        c["tier"] = tier
-
-        # role
-        if c["high_hits"] > c["low_hits"]:
-            role = "resistance"
-        elif c["low_hits"] > c["high_hits"]:
-            role = "support"
-        else:
-            role = "flip"
-        c["role"] = role
-
-    # Find nearest cluster
-    nearest = min(clusters, key=lambda c: abs(c["center"] - close_price))
-    dist_frac = abs(close_price - nearest["center"]) / max(nearest["center"], 1e-8)
-
-    # Distance threshold ~0.25% of price for HTF, slightly tighter for Daily
-    if label in ("Monthly", "Weekly"):
-        max_frac = 0.0025
-        allowed_tiers = {1, 2}
-    else:
-        max_frac = 0.0018
-        allowed_tiers = {2, 3}
-
-    is_near = dist_frac <= max_frac and nearest["tier"] in allowed_tiers
-
-    role_txt = nearest["role"]
-    tier_txt = nearest["tier"]
-    taps_txt = nearest["taps"]
-    lvl = nearest["center"]
-
-    if is_near:
-        note = (
-            f"{label}: price near Tier {tier_txt} {role_txt} S/R "
-            f"around {lvl:.5f} (≈{taps_txt} taps, dist≈{dist_frac*100:.2f}%)."
-        )
-        return True, note
-    else:
-        note = (
-            f"{label}: nearest Tier {tier_txt} {role_txt} S/R at "
-            f"{lvl:.5f} (≈{taps_txt} taps, dist≈{dist_frac*100:.2f}%)."
-        )
-        return False, note
-
-
-# ===== Fibonacci & impulse legs (generic) =====
-
-
-def _find_impulse_leg(
-    candles: List[Dict[str, float]],
-    swings: List[Tuple[int, str, float]],
-    trend: str,
-    min_move_frac: float = 0.005,
-) -> Optional[Tuple[int, int, float, float]]:
-    """
-    Identify last meaningful impulse leg in direction of trend.
-
-    Returns:
-      (start_index, end_index, start_price_body, end_price_wick)
-      or None if no valid leg.
-    """
-    if trend not in ("bullish", "bearish"):
-        return None
-    if len(swings) < 4:
-        return None
-
-    sw = swings[-8:]
-
-    if trend == "bullish":
-        highs = [s for s in sw if s[1] == "high"]
-        lows = [s for s in sw if s[1] == "low"]
-        if not highs or not lows:
-            return None
-        last_high = highs[-1]
-        low_candidates = [s for s in lows if s[0] < last_high[0]]
-        if not low_candidates:
-            return None
-        last_low = low_candidates[-1]
-
-        start_idx = last_low[0]
-        end_idx = last_high[0]
-        if end_idx <= start_idx:
-            return None
-
-        start_c = candles[start_idx]
-        end_c = candles[end_idx]
-
-        start_price = _body_price(start_c)
-        end_price = end_c["high"]
-        if end_price <= start_price:
-            return None
-
-        if (end_price - start_price) / max(start_price, 1e-8) < min_move_frac:
-            return None
-
-        return start_idx, end_idx, start_price, end_price
-
-    # bearish
-    highs = [s for s in sw if s[1] == "high"]
-    lows = [s for s in sw if s[1] == "low"]
-    if not highs or not lows:
-        return None
-    last_low = lows[-1]
-    high_candidates = [s for s in highs if s[0] < last_low[0]]
-    if not high_candidates:
-        return None
-    last_high = high_candidates[-1]
-
-    start_idx = last_high[0]
-    end_idx = last_low[0]
-    if end_idx <= start_idx:
-        return None
-
-    start_c = candles[start_idx]
-    end_c = candles[end_idx]
-
-    start_price = _body_price(start_c)
-    end_price = end_c["low"]
-    if end_price >= start_price:
-        return None
-
-    if (start_price - end_price) / max(start_price, 1e-8) < min_move_frac:
-        return None
-
-    return start_idx, end_idx, start_price, end_price
-
-
-def _fib_retrace_zone(
-    start_price: float,
-    end_price: float,
-) -> Tuple[float, float]:
-    """
-    Return price band for 0.618..0.796 retracement.
-    Direction-aware based on start/end prices.
-    """
-    diff = end_price - start_price
-    gp1 = start_price + 0.618 * diff
-    gp2 = start_price + 0.796 * diff
-    return min(gp1, gp2), max(gp1, gp2)
-
-
-def _check_fib_confluence(
-    leg: Optional[Tuple[int, int, float, float]],
-    current_price: float,
-    label: str,
-) -> Tuple[bool, str, Optional[float], Optional[float]]:
-    """
-    Check if current price sits in golden pocket of last impulse leg.
-
-    Returns:
-      (fib_ok, note, gp_low, gp_high)
-    """
-    if leg is None:
-        return False, f"{label}: no clear impulse leg for fib.", None, None
-
-    _, _, start_price, end_price = leg
-    gp_low, gp_high = _fib_retrace_zone(start_price, end_price)
-
-    if gp_low <= current_price <= gp_high:
-        note = (
-            f"{label}: price inside golden pocket "
-            f"({gp_low:.5f}–{gp_high:.5f}) of last impulse leg."
-        )
-        return True, note, gp_low, gp_high
-    else:
-        note = (
-            f"{label}: price outside golden pocket "
-            f"({gp_low:.5f}–{gp_high:.5f}) of last impulse leg."
-        )
-        return False, note, gp_low, gp_high
-
-
-# ===== Supply/Demand from impulse origin (Monthly/Weekly/Daily) =====
-
-
-def _ob_context_from_impulse(
-    candles: List[Dict[str, float]],
-    direction: Direction,
-    leg: Optional[Tuple[int, int, float, float]],
-    current_price: float,
-    label: str,
-) -> Tuple[bool, str]:
-    """
-    Build a supply/demand zone from the origin of the last impulse, closer to the spec:
-
-      - For bullish context: demand zone from the last cluster of bearish candles
-        before the impulsive rally that forms the impulse leg.
-      - For bearish context: supply zone from the last cluster of bullish candles
-        before the impulsive selloff that forms the impulse leg.
-
-    We then check whether current price is:
-      - inside this zone (ideal),
-      - or clearly above/below it (potential future retest area).
-
-    We also try to detect if the zone has already been "used" (tapped multiple times)
-    since the impulse, by counting deep re-entries into the zone.
-    """
-    if leg is None or not candles:
-        return False, f"{label}: no impulse origin for supply/demand."
-
-    start_idx, end_idx, _, _ = leg
-    if start_idx <= 0 or start_idx >= len(candles):
-        return False, f"{label}: invalid impulse origin for supply/demand."
-
-    # 1) Find last 1–3 opposing candles before the impulse start
-    base_indices: List[int] = []
-    i = start_idx
-    max_span = 3  # up to 3-candle cluster
-
-    if direction == "bullish":
-        # We want bearish candles before the rally
-        j = i
-        while j >= 0 and len(base_indices) < max_span:
-            if _is_bearish(candles[j]):
-                base_indices.append(j)
-            else:
-                if base_indices:
-                    break
-            j -= 1
-        zone_type = "demand"
-    else:
-        # bearish direction → we want bullish base candles
-        j = i
-        while j >= 0 and len(base_indices) < max_span:
-            if _is_bullish(candles[j]):
-                base_indices.append(j)
-            else:
-                if base_indices:
-                    break
-            j -= 1
-        zone_type = "supply"
-
-    if not base_indices:
-        # fallback: just use the impulse-start candle
-        base_indices = [start_idx]
-
-    # 2) Build zone bounds from this base cluster
-    lows = [candles[k]["low"] for k in base_indices]
-    highs = [candles[k]["high"] for k in base_indices]
-    opens = [candles[k]["open"] for k in base_indices]
-    closes = [candles[k]["close"] for k in base_indices]
-
-    if direction == "bullish":
-        zone_low = min(lows)
-        zone_high = max(opens + closes)  # body top
-    else:
-        zone_low = min(opens + closes)   # body bottom
-        zone_high = max(highs)
-
-    # 3) Check "fresh vs used" – look after the impulse for taps into the zone
-    taps_after = 0
-    for idx in range(end_idx + 1, len(candles)):
-        c = candles[idx]
-        if c["low"] <= zone_high and c["high"] >= zone_low:
-            taps_after += 1
-
-    if taps_after == 0:
-        freshness = "fresh"
-    elif taps_after == 1:
-        freshness = "first retest"
-    else:
-        freshness = "used"
-
-    # 4) Check where current price is relative to the zone
-    tol = current_price * 0.0005  # small buffer (~0.05%)
-    inside = (zone_low - tol) <= current_price <= (zone_high + tol)
-
-    if inside:
-        note = (
-            f"{label}: price inside {freshness} {zone_type} zone from last impulse origin "
-            f"[{zone_low:.5f}–{zone_high:.5f}]."
-        )
-        return True, note
-    else:
-        if current_price < zone_low:
-            relation = "below"
-        elif current_price > zone_high:
-            relation = "above"
-        else:
-            relation = "between"
-
-        note = (
-            f"{label}: current price {relation} {freshness} {zone_type} zone from last impulse origin "
-            f"[{zone_low:.5f}–{zone_high:.5f}]."
-        )
-        return False, note
-
-
-# ===== Liquidity: equal highs/lows (Daily) =====
-
-
-def _find_equal_levels(
-    candles: List[Dict[str, float]],
-    tolerance_frac: float = 0.0005,
-) -> Tuple[List[float], List[float]]:
-    """
-    Approximate equal highs/lows detection.
-
-    tolerance_frac: fraction of price (e.g. 0.0005 = 0.05%).
-    Returns:
-      (equal_highs, equal_lows)
-    """
-    highs = [c["high"] for c in candles]
-    lows = [c["low"] for c in candles]
-    equal_highs: List[float] = []
-    equal_lows: List[float] = []
-
-    if len(candles) < 5:
-        return equal_highs, equal_lows
-
-    # near-equal highs
-    for i in range(1, len(candles) - 1):
+    for i in range(left, n - right):
         h = highs[i]
-        for j in range(i + 1, min(i + 5, len(candles))):
-            h2 = highs[j]
-            mid = (h + h2) / 2.0
-            tol = mid * tolerance_frac
-            if abs(h - h2) <= tol:
-                equal_highs.append(mid)
-                break
+        if all(h >= highs[j] for j in range(i - left, i + right + 1)):
+            swing_highs.append(i)
 
-    # near-equal lows
-    for i in range(1, len(candles) - 1):
         l = lows[i]
-        for j in range(i + 1, min(i + 5, len(candles))):
-            l2 = lows[j]
-            mid = (l + l2) / 2.0
-            tol = mid * tolerance_frac
-            if abs(l - l2) <= tol:
-                equal_lows.append(mid)
-                break
+        if all(l <= lows[j] for j in range(i - left, i + right + 1)):
+            swing_lows.append(i)
 
-    # de-duplicate
-    def _dedupe(levels: List[float]) -> List[float]:
-        levels = sorted(levels)
-        if not levels:
-            return levels
-        deduped = [levels[0]]
-        for lv in levels[1:]:
-            if abs(lv - deduped[-1]) > deduped[-1] * tolerance_frac * 2:
-                deduped.append(lv)
-        return deduped
-
-    return _dedupe(equal_highs), _dedupe(equal_lows)
+    return swing_highs, swing_lows
 
 
-def _liquidity_context(
-    candles: List[Dict[str, float]],
-    current_price: float,
+def _detect_structural_frameworks_d1(
+    d_candles: List[Dict],
+    direction: str,
+) -> Tuple[bool, Optional[str], str]:
+    """
+    Detect Daily structural frameworks:
+    - Bearish Head & Shoulders
+    - Bullish Inverse Head & Shoulders
+    - Bullish N (continuation)
+    - Bearish V (continuation)
+
+    Returns:
+        (framework_ok, framework_name, framework_note)
+    """
+    if not d_candles or len(d_candles) < 50:
+        return False, None, "Daily framework: not enough data to evaluate."
+
+    swing_highs, swing_lows = _find_swings(d_candles, left=2, right=2)
+    closes = [c["close"] for c in d_candles]
+    highs = [c["high"] for c in d_candles]
+    lows = [c["low"] for c in d_candles]
+
+    framework_ok = False
+    framework_name: Optional[str] = None
+    note_parts: List[str] = []
+
+    # --- 1) Try to detect H&S / inverse H&S on the last ~80 candles ---
+    lookback = 80
+    start = max(0, len(d_candles) - lookback)
+    sh = [i for i in swing_highs if i >= start]
+    sl = [i for i in swing_lows if i >= start]
+
+    # Bearish Head & Shoulders (reversal short)
+    if len(sh) >= 3:
+        # take last 3 swing highs as candidate shoulder-head-shoulder
+        h1, h2, h3 = sh[-3], sh[-2], sh[-1]
+        if highs[h2] > highs[h1] and highs[h2] > highs[h3]:
+            # neck lows: min lows between h1-h2 and h2-h3
+            neck1 = min(lows[h1:h2 + 1])
+            neck2 = min(lows[h2:h3 + 1])
+            neckline = (neck1 + neck2) / 2.0
+            last_close = closes[-1]
+
+            if last_close < neckline * 0.999:  # broke neckline
+                framework_ok = (direction == "bearish")
+                framework_name = "Bearish Head & Shoulders"
+                note_parts.append(
+                    f"Daily H&S detected: head at {h2}, neckline ≈ {neckline:.5f}, "
+                    f"price closed below neckline."
+                )
+
+    # Bullish Inverse H&S (reversal long)
+    if not framework_ok and len(sl) >= 3:
+        l1, l2, l3 = sl[-3], sl[-2], sl[-1]
+        if lows[l2] < lows[l1] and lows[l2] < lows[l3]:
+            # neck highs: max highs between l1-l2 and l2-l3
+            neck1 = max(highs[l1:l2 + 1])
+            neck2 = max(highs[l2:l3 + 1])
+            neckline = (neck1 + neck2) / 2.0
+            last_close = closes[-1]
+
+            if last_close > neckline * 1.001:  # broke neckline
+                framework_ok = (direction == "bullish")
+                framework_name = "Bullish Inverse Head & Shoulders"
+                note_parts.append(
+                    f"Daily inverse H&S detected: head at {l2}, neckline ≈ {neckline:.5f}, "
+                    f"price closed above neckline."
+                )
+
+    # --- 2) Try to detect Bullish N / Bearish V continuation patterns ---
+    # Very simplified: look at last 3 swing points in trend direction.
+    if not framework_ok:
+        if direction == "bullish" and len(swing_lows) >= 2 and len(swing_highs) >= 1:
+            # pattern: low (HL) -> high (HH) -> higher low (HL)
+            last_low_idx = swing_lows[-1]
+            prev_low_idx = swing_lows[-2]
+            max_high_idx = max(swing_highs)  # coarse approx for leg 1 high
+
+            if prev_low_idx < max_high_idx < last_low_idx:
+                # leg-1: prev_low -> max_high, leg-2: max_high -> last_low
+                l1_low = lows[prev_low_idx]
+                l1_high = highs[max_high_idx]
+                l2_low = lows[last_low_idx]
+                if l1_high > l1_low and l2_low > l1_low:
+                    framework_ok = True
+                    framework_name = "Bullish N (continuation)"
+                    note_parts.append(
+                        "Daily Bullish N pattern: impulse up, corrective pullback forming a higher low."
+                    )
+
+        if direction == "bearish" and len(swing_highs) >= 2 and len(swing_lows) >= 1:
+            # pattern: high (LH) -> low (LL) -> lower high (LH)
+            last_high_idx = swing_highs[-1]
+            prev_high_idx = swing_highs[-2]
+            min_low_idx = min(swing_lows)  # coarse approx for leg 1 low
+
+            if prev_high_idx < min_low_idx < last_high_idx:
+                l1_high = highs[prev_high_idx]
+                l1_low = lows[min_low_idx]
+                l2_high = highs[last_high_idx]
+                if l1_low < l1_high and l2_high < l1_high:
+                    framework_ok = True
+                    framework_name = "Bearish V (continuation)"
+                    note_parts.append(
+                        "Daily Bearish V pattern: impulse down, corrective bounce forming a lower high."
+                    )
+
+    if framework_ok and framework_name:
+        note_parts.insert(0, f"Daily framework: {framework_name}.")
+    else:
+        if not note_parts:
+            note_parts.append("Daily framework: none clearly detected.")
+
+    return framework_ok, framework_name, " ".join(note_parts)
+
+
+def _structure_context(
+    symbol: str,
+    m_candles: List[Dict],
+    w_candles: List[Dict],
+    d_candles: List[Dict],
+    direction: str,
 ) -> Tuple[bool, str]:
     """
-    Basic liquidity context via equal highs/lows:
+    Evaluate Weekly + Daily structure AND Daily frameworks (H&S, inverse H&S, N/V).
 
-    - Detect equal highs/lows (magnetic levels).
-    - Check if price is near one of them.
+    Returns:
+        (structure_ok, struct_note)
     """
-    equal_highs, equal_lows = _find_equal_levels(candles)
-    if not equal_highs and not equal_lows:
-        return False, "Daily: no clear equal highs/lows liquidity pools."
+    # --- basic trend on W & D ---
+    def _trend_from_swings(candles: List[Dict]) -> str:
+        if not candles or len(candles) < 20:
+            return "mixed"
 
-    all_levels = [(lv, "high") for lv in equal_highs] + [(lv, "low") for lv in equal_lows]
-    if not all_levels:
-        return False, "Daily: no clear equal highs/lows liquidity pools."
+        swing_highs, swing_lows = _find_swings(candles, left=2, right=2)
 
-    nearest_level, kind = min(all_levels, key=lambda x: abs(x[0] - current_price))
-    dist = abs(current_price - nearest_level) / max(nearest_level, 1e-8)
+        if len(swing_highs) < 2 or len(swing_lows) < 2:
+            return "mixed"
 
-    if dist <= 0.002:  # within ~0.2%
-        note = f"Daily: price sitting near {kind} liquidity pool around {nearest_level:.5f}."
-        return True, note
+        highs = [candles[i]["high"] for i in swing_highs]
+        lows = [candles[i]["low"] for i in swing_lows]
+
+        # very coarse: last two highs/lows
+        h1, h2 = highs[-2], highs[-1]
+        l1, l2 = lows[-2], lows[-1]
+
+        if h2 > h1 and l2 > l1:
+            return "bullish"
+        if h2 < h1 and l2 < l1:
+            return "bearish"
+        return "mixed"
+
+    # we keep m_candles available if later you want to add "monthly structure"
+    _ = m_candles
+
+    w_trend = _trend_from_swings(w_candles)
+    d_trend = _trend_from_swings(d_candles)
+
+    # --- textual baseline ---
+    parts: List[str] = []
+    parts.append(f"Weekly structure: {w_trend}.")
+    parts.append(f"Daily structure: {d_trend}.")
+
+    # --- framework detection on Daily ---
+    framework_ok, framework_name, framework_note = _detect_structural_frameworks_d1(
+        d_candles, direction
+    )
+    parts.append(framework_note)
+
+    # --- decide structure_ok ---
+    structure_ok = False
+
+    # 1) pure trend alignment
+    if direction == "bullish":
+        if w_trend == "bullish" and d_trend in ("bullish", "mixed"):
+            structure_ok = True
+    elif direction == "bearish":
+        if w_trend == "bearish" and d_trend in ("bearish", "mixed"):
+            structure_ok = True
+
+    # 2) OR we accept a strong reversal / continuation framework
+    if framework_ok:
+        structure_ok = True
+
+    # small textual tag about how structure supports the idea
+    if structure_ok:
+        if framework_ok and framework_name:
+            parts.append(
+                f"Structure supports {direction} idea via Daily {framework_name} and HTF trend context."
+            )
+        else:
+            parts.append(
+                f"Structure supports {direction} idea via Weekly/Daily trend alignment."
+            )
     else:
-        note = f"Daily: nearest {kind} liquidity pool at {nearest_level:.5f}, not yet engaged."
-        return False, note
+        parts.append(
+            f"Structure does NOT cleanly support {direction} idea (trend/framework mismatch)."
+        )
 
-
-# ===== 4H confirmation =====
+    return structure_ok, " ".join(parts)
 
 
 def _h4_confirmation(
-    symbol: str,
-    direction: Direction,
-) -> Tuple[bool, str]:
+    h4_candles: List[dict],
+    direction: str,
+) -> Tuple[str, bool]:
     """
-    Simple 4H BOS-type confirmation:
+    4H confirmation (less condensed):
 
-    - Bullish: last close > max high of previous N candles.
-    - Bearish: last close < min low of previous N candles.
+    We approximate a real BOS idea:
+    - For LONGS: look for a recent 4H candle that CLOSED above the previous
+      swing high → BOS up.
+    - For SHORTS: look for a recent 4H candle that CLOSED below the previous
+      swing low → BOS down.
     """
-    h4 = get_ohlcv(symbol, timeframe="H4", count=60)
-    if not h4 or len(h4) < 10:
-        return False, "H4: no sufficient data for confirmation."
+    if not h4_candles or len(h4_candles) < 30:
+        return "4H: not enough data for BOS confirmation.", False
 
-    prev = h4[:-1]
-    last = h4[-1]
-    prev_high = max(c["high"] for c in prev)
-    prev_low = min(c["low"] for c in prev)
-    last_close = last["close"]
+    swing_highs, swing_lows = _find_swings(h4_candles, left=2, right=2)
+    closes = [c["close"] for c in h4_candles]
 
+    # We only care about *recent* structure for confirmation.
+    recent_window = 30
+    last_index = len(h4_candles) - 1
+    recent_start = max(0, last_index - recent_window)
+
+    # -------- BULLISH (need BOS UP over previous swing high) --------
     if direction == "bullish":
-        if last_close > prev_high:
-            return True, "H4 bullish BOS (last close broke above recent H4 highs)."
-        else:
-            return False, "H4: no bullish BOS above recent H4 highs."
-    else:
-        if last_close < prev_low:
-            return True, "H4 bearish BOS (last close broke below recent H4 lows)."
-        else:
-            return False, "H4: no bearish BOS below recent H4 lows."
+        if len(swing_highs) < 2:
+            return "4H: no clear swing highs to confirm longs.", False
+
+        prev_high_idx = swing_highs[-2]
+        prev_high = h4_candles[prev_high_idx]["high"]
+
+        start_idx = max(prev_high_idx + 1, recent_start)
+        bos_idx: Optional[int] = None
+
+        for i in range(start_idx, len(h4_candles)):
+            if closes[i] > prev_high * 1.0005:  # small buffer
+                bos_idx = i
+                break
+
+        if bos_idx is None:
+            return (
+                f"4H: no BOS up – no recent 4H close above key swing high around {prev_high:.5f}.",
+                False,
+            )
+
+        note = (
+            f"4H confirmation: BOS DOWN – recent 4H candle (index {bos_idx}) closed above "
+            f"previous swing high around {prev_high:.5f}."
+        )
+        return note, True
+
+    # -------- BEARISH (need BOS DOWN under previous swing low) --------
+    if direction == "bearish":
+        if len(swing_lows) < 2:
+            return "4H: no clear swing lows to confirm shorts.", False
+
+        prev_low_idx = swing_lows[-2]
+        prev_low = h4_candles[prev_low_idx]["low"]
+
+        start_idx = max(prev_low_idx + 1, recent_start)
+        bos_idx: Optional[int] = None
+
+        for i in range(start_idx, len(h4_candles)):
+            if closes[i] < prev_low * 0.9995:  # small buffer
+                bos_idx = i
+                break
+
+        if bos_idx is None:
+            return (
+                f"4H: no BOS down – no recent 4H close below key swing low around {prev_low:.5f}.",
+                False,
+            )
+
+        note = (
+            f"4H confirmation: BOS DOWN – recent 4H candle (index {bos_idx}) closed below "
+            f"previous swing low around {prev_low:.5f}."
+        )
+        return note, True
+
+    return "4H: no directional bias to confirm.", False
 
 
-# ===== R/R & trade structure =====
+def _atr(candles: List[dict], period: int = 14) -> float:
+    """Very simple ATR approximation using high-low only."""
+    if len(candles) < 2:
+        return 0.0
+    inps = candles[-period:]
+    trs = [c["high"] - c["low"] for c in inps]
+    if not trs:
+        return 0.0
+    return sum(trs) / len(trs)
 
 
-def _build_trade_from_context(
-    symbol: str,  # unused, kept for compatibility
-    direction: Direction,
-    daily_candles: List[Dict[str, float]],
-    daily_swings: List[Tuple[int, str, float]],
-    current_price: float,
+def _rr_context(
+    daily_candles: List[dict],
+    direction: str,
 ) -> Tuple[
-    Optional[float],
-    Optional[float],
-    Optional[float],
-    Optional[float],
-    Optional[float],
     str,
+    bool,
+    Optional[float],
+    Optional[float],
+    Optional[float],
+    Optional[float],
     Optional[float],
     Optional[float],
     Optional[float],
 ]:
     """
-    Build entry/SL/TP1/TP2/TP3 and R-multiples roughly according to Blueprint logic.
+    TP1–TP5 based on Fibonacci extensions of the *Daily impulse leg*:
 
-    Simplified rules:
-      - Entry: current Daily close.
-      - SL: beyond nearest swing low/high in direction of trade.
-      - TP1/TP2/TP3: at 1.5R, 2.5R, 4R.
+    - TP1: -0.25
+    - TP2: -0.65
+    - TP3: -1.00
+    - TP4: -1.42
+    - TP5: -2.00
+
+    Entry is approximated in the golden pocket of that leg.
+    SL is placed beyond the swing extreme with a buffer.
+
+    If no clear impulse leg exists, we fall back to ATR-based pseudo-targets
+    and explicitly say so in the note.
     """
     if not daily_candles:
-        return (None, None, None, None, None, "No candles for R/R.", None, None, None)
+        return "R/R: no data.", False, None, None, None, None, None, None, None
 
-    entry = current_price
+    current = daily_candles[-1]["close"]
+    leg = _find_last_swing_leg_for_fib(daily_candles, direction)
 
-    lows = [s for s in daily_swings if s[1] == "low"]
-    highs = [s for s in daily_swings if s[1] == "high"]
+    # ---- Try fib-based targets from Daily impulse leg ----
+    if leg:
+        lo, hi = leg
+        span = hi - lo
+        if span > 0:
+            if direction == "bullish":
+                gp_low = lo + span * 0.618
+                gp_high = lo + span * 0.796
+                if gp_low <= current <= gp_high:
+                    entry = current
+                else:
+                    entry = (gp_low + gp_high) / 2.0
 
+                sl = lo - span * 0.25
+                risk = entry - sl
+
+                ext = [0.25, 0.65, 1.0, 1.42, 2.0]
+                tp1 = hi + span * ext[0]
+                tp2 = hi + span * ext[1]
+                tp3 = hi + span * ext[2]
+                tp4 = hi + span * ext[3]
+                tp5 = hi + span * ext[4]
+
+                if risk > 0:
+                    rr1 = (tp1 - entry) / risk
+                    rr_ok = rr1 >= 1.5
+                    note = (
+                        "R/R: using Daily impulse leg; entry in golden pocket, SL below swing low. "
+                        "TP1–TP5 based on Fib extensions (-0.25, -0.65, -1.00, -1.42, -2.00). "
+                        f"Approx first target ≈ {rr1:.1f}R."
+                    )
+                    return note, rr_ok, entry, sl, tp1, tp2, tp3, tp4, tp5
+
+            else:  # bearish
+                gp_low = hi - span * 0.796
+                gp_high = hi - span * 0.618
+                if gp_low <= current <= gp_high:
+                    entry = current
+                else:
+                    entry = (gp_low + gp_high) / 2.0
+
+                sl = hi + span * 0.25
+                risk = sl - entry
+
+                ext = [0.25, 0.65, 1.0, 1.42, 2.0]
+                tp1 = lo - span * ext[0]
+                tp2 = lo - span * ext[1]
+                tp3 = lo - span * ext[2]
+                tp4 = lo - span * ext[3]
+                tp5 = lo - span * ext[4]
+
+                if risk > 0:
+                    rr1 = (entry - tp1) / risk
+                    rr_ok = rr1 >= 1.5
+                    note = (
+                        "R/R: using Daily impulse leg; entry in golden pocket, SL above swing high. "
+                        "TP1–TP5 based on Fib extensions (-0.25, -0.65, -1.00, -1.42, -2.00). "
+                        f"Approx first target ≈ {rr1:.1f}R."
+                    )
+                    return note, rr_ok, entry, sl, tp1, tp2, tp3, tp4, tp5
+
+    # ---- Fallback: ATR-based targets if no clean impulse leg ----
+    atr = _atr(daily_candles)
+    if atr <= 0:
+        return "R/R: no clear impulse leg and ATR too small; skipping R/R.", False, None, None, None, None, None, None, None
+
+    entry = current
     if direction == "bullish":
-        if not lows:
-            return (None, None, None, None, None, "No Daily swing lows for SL.", None, None, None)
-        last_low = lows[-1][2]
-        sl = last_low * (1.0 - 0.001)  # small buffer
-        risk = entry - sl
-        if risk <= 0:
-            return (None, None, None, None, None, "Invalid risk (entry <= SL).", None, None, None)
-
-        tp1 = entry + 1.5 * risk
-        tp2 = entry + 2.5 * risk
-        tp3 = entry + 4.0 * risk
+        sl = entry - atr
+        risk = atr
+        if sl <= 0 or risk <= 0:
+            return "R/R: invalid SL level.", False, None, None, None, None, None, None, None
+        tp1 = entry + risk * 1.5
+        tp2 = entry + risk * 2.5
+        tp3 = entry + risk * 4.0
+        tp4 = entry + risk * 6.0
+        tp5 = entry + risk * 8.0
+        rr1 = (tp1 - entry) / risk
     else:
-        if not highs:
-            return (None, None, None, None, None, "No Daily swing highs for SL.", None, None, None)
-        last_high = highs[-1][2]
-        sl = last_high * (1.0 + 0.001)
-        risk = sl - entry
-        if risk <= 0:
-            return (None, None, None, None, None, "Invalid risk (entry >= SL).", None, None, None)
+        sl = entry + atr
+        risk = atr
+        tp1 = entry - risk * 1.5
+        tp2 = entry - risk * 2.5
+        tp3 = entry - risk * 4.0
+        tp4 = entry - risk * 6.0
+        tp5 = entry - risk * 8.0
+        rr1 = (entry - tp1) / risk
 
-        tp1 = entry - 1.5 * risk
-        tp2 = entry - 2.5 * risk
-        tp3 = entry - 4.0 * risk
-
-    rr1 = (tp1 - entry) / risk if direction == "bullish" else (entry - tp1) / risk
-    rr2 = (tp2 - entry) / risk if direction == "bullish" else (entry - tp2) / risk
-    rr3 = (tp3 - entry) / risk if direction == "bullish" else (entry - tp3) / risk
-
-    rr_note = (
-        f"Approx R/R: TP1 ~{rr1:.1f}R, TP2 ~{rr2:.1f}R, TP3 ~{rr3:.1f}R "
-        f"from entry {entry:.5f} and SL {sl:.5f}."
+    rr_ok = rr1 >= 1.5
+    note = (
+        "R/R: no clear Daily impulse leg for Fib; using ATR-based pseudo-targets instead. "
+        f"Approx first target ≈ {rr1:.1f}R."
     )
-
-    return entry, sl, tp1, tp2, tp3, rr_note, rr1, rr2, rr3
-
-
-# ===== Structural frameworks (H&S / inverse H&S / N / V) =====
+    return note, rr_ok, entry, sl, tp1, tp2, tp3, tp4, tp5
 
 
-def _detect_head_shoulders(
-    swings: List[Tuple[int, str, float]],
-    pattern_type: str,
-    label: str,
-) -> Tuple[bool, str]:
+def _compute_confluence_flags(
+    symbol: str,
+    monthly_candles: List[dict],
+    weekly_candles: List[dict],
+    daily_candles: List[dict],
+    h4_candles: List[dict],
+    direction: str,
+) -> Tuple[
+    Dict[str, bool],
+    Dict[str, str],
+    Tuple[
+        Optional[float],
+        Optional[float],
+        Optional[float],
+        Optional[float],
+        Optional[float],
+        Optional[float],
+        Optional[float],
+    ],
+]:
     """
-    Detect a very simple H&S / inverse H&S shape from swing highs/lows.
-
-    pattern_type:
-      - "bearish" → Head & Shoulders (swing highs)
-      - "bullish" → inverse Head & Shoulders (swing lows)
-    """
-    if pattern_type == "bearish":
-        hl = [s for s in swings if s[1] == "high"]
-        if len(hl) < 3:
-            return False, f"{label}: no clear H&S (insufficient swing highs)."
-        h1, h2, h3 = hl[-3], hl[-2], hl[-1]
-        # ensure chronological
-        if not (h1[0] < h2[0] < h3[0]):
-            return False, f"{label}: H&S swings not in chronological order."
-        # shoulders similar
-        mid = (h1[2] + h3[2]) / 2.0
-        if mid <= 0:
-            return False, f"{label}: invalid prices for H&S."
-        shoulders_close = abs(h1[2] - h3[2]) / mid <= 0.005  # ~0.5%
-        # head higher
-        head_above = h2[2] > h1[2] * (1.0 + 0.002) and h2[2] > h3[2] * (1.0 + 0.002)
-
-        if shoulders_close and head_above:
-            note = (
-                f"{label}: Bearish Head & Shoulders structure in recent swings "
-                f"(shoulders ~{h1[2]:.5f}/{h3[2]:.5f}, head {h2[2]:.5f})."
-            )
-            return True, note
-        return False, f"{label}: no clean Bearish H&S in last swings."
-
-    else:  # "bullish" → inverse H&S on lows
-        ll = [s for s in swings if s[1] == "low"]
-        if len(ll) < 3:
-            return False, f"{label}: no clear inverse H&S (insufficient swing lows)."
-        l1, l2, l3 = ll[-3], ll[-2], ll[-1]
-        if not (l1[0] < l2[0] < l3[0]):
-            return False, f"{label}: inverse H&S swings not in chronological order."
-        mid = (l1[2] + l3[2]) / 2.0
-        if mid <= 0:
-            return False, f"{label}: invalid prices for inverse H&S."
-        shoulders_close = abs(l1[2] - l3[2]) / mid <= 0.005
-        head_below = l2[2] < l1[2] * (1.0 - 0.002) and l2[2] < l3[2] * (1.0 - 0.002)
-
-        if shoulders_close and head_below:
-            note = (
-                f"{label}: Bullish inverse Head & Shoulders structure in recent swings "
-                f"(shoulders ~{l1[2]:.5f}/{l3[2]:.5f}, head {l2[2]:.5f})."
-            )
-            return True, note
-        return False, f"{label}: no clean inverse H&S in last swings."
-
-
-def _framework_context(
-    direction: Direction,
-    daily_swings: List[Tuple[int, str, float]],
-    daily_trend: str,
-    weekly_trend: str,
-    monthly_trend: str,
-    monthly_edge: bool,
-    weekly_edge: bool,
-    daily_edge: bool,
-    monthly_sr_ok: bool,
-    weekly_sr_ok: bool,
-    daily_sr_ok: bool,
-    fib_ok: bool,
-    weekly_ob_ok: bool,
-    daily_ob_ok: bool,
-) -> Tuple[bool, str]:
-    """
-    Detect structural frameworks in line with the Blueprint spec:
-
-    - Reversal frameworks: H&S / inverse H&S at or near HTF S/R/edges.
-    - Continuation frameworks: Bullish N / Bearish V when:
-        Weekly trend with direction, fib_ok, and inside/near OB.
-
+    Core confluence evaluation:
     Returns:
-      (framework_ok, note)
+    - flags: dict with booleans for each of the 7 pillars
+    - notes: dict with rich explanation strings
+    - trade_levels: (entry, sl, tp1, tp2, tp3, tp4, tp5)
     """
-    frameworks: List[str] = []
-    framework_ok = False
+    price = daily_candles[-1]["close"] if daily_candles else float("nan")
 
-    # --- Reversal frameworks (H&S / inverse H&S on Daily) ---
-    near_htf_level = (
-        monthly_edge or weekly_edge or daily_edge or
-        monthly_sr_ok or weekly_sr_ok or daily_sr_ok
+    # 1) HTF bias
+    mn_trend = _infer_trend(monthly_candles) if monthly_candles else "mixed"
+    wk_trend = _infer_trend(weekly_candles) if weekly_candles else "mixed"
+    d_trend = _infer_trend(daily_candles) if daily_candles else "mixed"
+    _, htf_note_text, htf_ok = _pick_direction_from_bias(mn_trend, wk_trend, d_trend)
+
+    # 2) Location (top-down ranges + S/R + supply/demand with polarity)
+    loc_note, loc_ok = _location_context(
+        monthly_candles, weekly_candles, daily_candles, price, direction
     )
 
-    if near_htf_level:
-        if direction == "bearish":
-            hs_found, hs_note = _detect_head_shoulders(daily_swings, "bearish", "Daily")
-            if hs_found:
-                frameworks.append(
-                    hs_note + " At HTF resistance/edge, valid bearish reversal context."
-                )
-                framework_ok = True
-        else:
-            ihs_found, ihs_note = _detect_head_shoulders(daily_swings, "bullish", "Daily")
-            if ihs_found:
-                frameworks.append(
-                    ihs_note + " At HTF support/edge, valid bullish reversal context."
-                )
-                framework_ok = True
+    # 3) Fibonacci (Weekly & Daily legs)
+    fib_note, fib_ok = _fib_context(weekly_candles, daily_candles, direction, price)
 
-    # --- Continuation frameworks (Bullish N / Bearish V) ---
-    # Weekly trend + fib golden pocket + OB context = N/V-style continuation.
-    if direction == "bullish":
-        if weekly_trend == "bullish" and fib_ok and (weekly_ob_ok or daily_ob_ok):
-            frameworks.append(
-                "Daily/Weekly: Bullish N continuation candidate "
-                "(impulse + golden pocket pullback into demand)."
-            )
-            framework_ok = True
-    else:
-        if weekly_trend == "bearish" and fib_ok and (weekly_ob_ok or daily_ob_ok):
-            frameworks.append(
-                "Daily/Weekly: Bearish V continuation candidate "
-                "(impulse + golden pocket pullback into supply)."
-            )
-            framework_ok = True
+    # 4) Liquidity (Daily extremes + sweeps + equal H/L)
+    liq_note, liq_ok = _daily_liquidity_context(daily_candles, price)
 
-    if not frameworks:
-        return False, (
-            "No clear H&S / inverse H&S / N/V framework detected at HTF level in recent swings."
-        )
+    # 5) Structure (Weekly + Daily + frameworks)
+    struct_ok, struct_note = _structure_context(
+        symbol, monthly_candles, weekly_candles, daily_candles, direction
+    )
 
-    return framework_ok, " ".join(frameworks)
+    # 6) 4H confirmation
+    conf_note, conf_ok = _h4_confirmation(h4_candles, direction)
+
+    # 7) R/R & trade levels
+    (
+        rr_note,
+        rr_ok,
+        entry,
+        sl,
+        tp1,
+        tp2,
+        tp3,
+        tp4,
+        tp5,
+    ) = _rr_context(daily_candles, direction)
+
+    flags = {
+        "htf_bias": htf_ok,
+        "location": loc_ok,
+        "fib": fib_ok,
+        "liquidity": liq_ok,
+        "structure": struct_ok,
+        "confirmation": conf_ok,
+        "rr": rr_ok,
+    }
+
+    notes = {
+        "htf_bias": htf_note_text,
+        "location": loc_note,
+        "fib": fib_note,
+        "liquidity": liq_note,
+        "structure": struct_note,
+        "confirmation": conf_note,
+        "rr": rr_note,
+    }
+
+    trade_levels = (entry, sl, tp1, tp2, tp3, tp4, tp5)
+    return flags, notes, trade_levels
 
 
-# ===== Core scan logic for a single asset (TOP-DOWN) =====
+# ===== Public scan functions ================================================
 
 
 def scan_single_asset(symbol: str) -> Optional[ScanResult]:
     """
-    Scan a single asset for Blueprint-style swing opportunities with strict top-down:
-
-    1) Monthly & Weekly S/R + supply/demand.
-    2) Weekly structure & Weekly fib golden pocket.
-    3) Daily context (structure, range, Daily fib, liquidity, frameworks).
-    4) 4H confirmation BOS.
+    Full top-down Blueprint scan for a single asset.
+    Returns a ScanResult or None if data unavailable.
     """
-    # --- Load data ---
-    daily = get_ohlcv(symbol, timeframe="D", count=240)
-    if not daily or len(daily) < 60:
+
+    # OANDA hard limit: count <= 5000.
+    # We respect that but still pull as deep as possible.
+    monthly = get_ohlcv(symbol, timeframe="M", count=300)    # ~25y
+    weekly = get_ohlcv(symbol, timeframe="W", count=1500)    # ~28y
+    daily = get_ohlcv(symbol, timeframe="D", count=5000)     # API max
+    h4 = get_ohlcv(symbol, timeframe="H4", count=5000)       # API max
+
+    if not daily or not weekly:
         return None
 
-    current_close = daily[-1]["close"]
+    mn_trend = _infer_trend(monthly) if monthly else "mixed"
+    wk_trend = _infer_trend(weekly)
+    d_trend = _infer_trend(daily)
+    direction, htf_bias_text, _ = _pick_direction_from_bias(mn_trend, wk_trend, d_trend)
 
-    weekly = get_ohlcv(symbol, timeframe="W", count=260)
-    # Monthly may not be available in every data source; try "M" then "MN".
-    monthly = get_ohlcv(symbol, timeframe="M", count=240)
-    if not monthly:
-        monthly = get_ohlcv(symbol, timeframe="MN", count=240)
+    flags, notes, trade_levels = _compute_confluence_flags(
+        symbol, monthly, weekly, daily, h4, direction
+    )
+    entry, sl, tp1, tp2, tp3, tp4, tp5 = trade_levels
 
-    # --- Swings ---
-    daily_swings = _find_swings(daily, lookback=2)
-    weekly_swings = _find_swings(weekly, lookback=1) if weekly else []
-    monthly_swings = _find_swings(monthly, lookback=1) if monthly else []
+    confluence_score = sum(1 for v in flags.values() if v)
 
-    # --- Monthly context ---
-    if monthly and monthly_swings:
-        monthly_trend, monthly_trend_note = _infer_trend(monthly, monthly_swings, "Monthly")
-        m_low, m_high, m_pos, monthly_loc_note, monthly_edge = _range_and_location(
-            monthly, current_close, "Monthly"
-        )
-        monthly_sr_ok, monthly_sr_note = _sr_context_from_swings(
-            monthly, monthly_swings, current_close, "Monthly"
-        )
+    min_trade_conf = 5 if SIGNAL_MODE == "standard" else 4
+
+    if flags["confirmation"] and confluence_score >= min_trade_conf + 1 and flags["rr"]:
+        status = "active"
+    elif confluence_score >= min_trade_conf and flags["location"] and flags["fib"] and flags["liquidity"]:
+        status = "in_progress"
     else:
-        monthly_trend = "unknown"
-        monthly_trend_note = "Monthly data unavailable or insufficient."
-        monthly_loc_note = "Monthly: no range info."
-        monthly_edge = False
-        monthly_sr_ok = False
-        monthly_sr_note = "Monthly: no S/R context."
+        status = "scan_only"
 
-    # --- Weekly context ---
-    if weekly and weekly_swings:
-        weekly_trend, weekly_trend_note = _infer_trend(weekly, weekly_swings, "Weekly")
-        w_low, w_high, w_pos, weekly_loc_note, weekly_edge = _range_and_location(
-            weekly, current_close, "Weekly"
-        )
-        weekly_sr_ok, weekly_sr_note = _sr_context_from_swings(
-            weekly, weekly_swings, current_close, "Weekly"
-        )
-        weekly_impulse = _find_impulse_leg(weekly, weekly_swings, weekly_trend, min_move_frac=0.005)
-    else:
-        weekly_trend = "unknown"
-        weekly_trend_note = "Weekly data unavailable or insufficient."
-        weekly_loc_note = "Weekly: no range info."
-        weekly_edge = False
-        weekly_sr_ok = False
-        weekly_sr_note = "Weekly: no S/R context."
-        weekly_impulse = None
-
-    # --- Daily context ---
-    daily_trend, daily_trend_note = _infer_trend(daily, daily_swings, "Daily")
-    d_low, d_high, d_pos, daily_loc_note, daily_edge = _range_and_location(
-        daily, current_close, "Daily"
-    )
-    daily_sr_ok, daily_sr_note = _sr_context_from_swings(
-        daily, daily_swings, current_close, "Daily"
-    )
-    daily_impulse = _find_impulse_leg(daily, daily_swings, daily_trend, min_move_frac=0.003)
-
-    # --- Decide direction from Weekly (and Monthly) first ---
-    direction: Optional[Direction] = None
-
-    # Preferred: Monthly+Weekly alignment
-    if monthly_trend in ("bullish", "bearish") and weekly_trend == monthly_trend:
-        if monthly_trend == "bullish" and w_pos <= 0.5:
-            direction = "bullish"
-        elif monthly_trend == "bearish" and w_pos >= 0.5:
-            direction = "bearish"
-
-    # Fallback: Weekly only
-    if direction is None and weekly_trend in ("bullish", "bearish"):
-        if weekly_trend == "bullish" and w_pos <= 0.5:
-            direction = "bullish"
-        elif weekly_trend == "bearish" and w_pos >= 0.5:
-            direction = "bearish"
-
-    # Fallback: Daily if higher TFs unclear
-    if direction is None and daily_trend in ("bullish", "bearish"):
-        if daily_trend == "bullish" and d_pos <= 0.5:
-            direction = "bullish"
-        elif daily_trend == "bearish" and d_pos >= 0.5:
-            direction = "bearish"
-
-    if direction is None:
-        # No meaningful top-down direction
-        return None
-
-    # --- Weekly Fibonacci (primary fib) ---
-    weekly_fib_ok, weekly_fib_note, weekly_gp_low, weekly_gp_high = _check_fib_confluence(
-        weekly_impulse, current_close, "Weekly"
-    )
-
-    # --- Daily Fibonacci (secondary fib, mostly for entry refinement) ---
-    daily_fib_ok, daily_fib_note, daily_gp_low, daily_gp_high = _check_fib_confluence(
-        daily_impulse, current_close, "Daily"
-    )
-
-    # Combined fib confluence: Weekly priority, Daily secondary fallback
-    fib_ok = weekly_fib_ok or daily_fib_ok
-    if weekly_fib_ok and daily_fib_ok:
-        fib_note = f"{weekly_fib_note} Daily also aligned: {daily_fib_note}"
-    elif weekly_fib_ok:
-        fib_note = weekly_fib_note
-    elif daily_fib_ok:
-        fib_note = daily_fib_note + " (no clear Weekly impulse)."
-    else:
-        fib_note = f"{weekly_fib_note} {daily_fib_note}"
-
-    # --- Supply/Demand from Weekly and Daily impulse origins ---
-    if direction in ("bullish", "bearish"):
-        weekly_ob_ok, weekly_ob_note = _ob_context_from_impulse(
-            weekly if weekly else daily,  # fallback
-            direction,
-            weekly_impulse,
-            current_close,
-            "Weekly",
-        )
-        daily_ob_ok, daily_ob_note = _ob_context_from_impulse(
-            daily,
-            direction,
-            daily_impulse,
-            current_price=current_close,
-            label="Daily",
-        )
-    else:
-        weekly_ob_ok, weekly_ob_note = False, "Weekly: no OB context."
-        daily_ob_ok, daily_ob_note = False, "Daily: no OB context."
-
-    # --- Liquidity (Daily equal highs/lows) ---
-    liquidity_ok, liquidity_note = _liquidity_context(daily, current_close)
-
-    # --- 4H confirmation (BOS) ---
-    confirmation_ok, confirmation_note = _h4_confirmation(symbol, direction)
-
-    # --- R/R & trade structure from Daily ---
-    entry, sl, tp1, tp2, tp3, rr_note, rr1, rr2, rr3 = _build_trade_from_context(
-        symbol, direction, daily, daily_swings, current_close
-    )
-
-    min_rr1 = 1.2 if SIGNAL_MODE == "aggressive" else 1.5
-    rr_ok = entry is not None and sl is not None and rr1 is not None and rr1 >= min_rr1
-
-    # --- Structural frameworks (H&S / inverse H&S / N/V) ---
-    framework_ok, framework_note = _framework_context(
-        direction=direction,
-        daily_swings=daily_swings,
-        daily_trend=daily_trend,
-        weekly_trend=weekly_trend,
-        monthly_trend=monthly_trend,
-        monthly_edge=monthly_edge,
-        weekly_edge=weekly_edge,
-        daily_edge=daily_edge,
-        monthly_sr_ok=monthly_sr_ok,
-        weekly_sr_ok=weekly_sr_ok,
-        daily_sr_ok=daily_sr_ok,
-        fib_ok=fib_ok,
-        weekly_ob_ok=weekly_ob_ok,
-        daily_ob_ok=daily_ob_ok,
-    )
-
-    # --- HTF bias & structure flags ---
-
-    # Weekly + Daily alignment relative to the chosen direction
-    if direction == "bullish":
-        weekly_daily_aligned = (weekly_trend == "bullish" and daily_trend != "bearish")
-    else:
-        weekly_daily_aligned = (weekly_trend == "bearish" and daily_trend != "bullish")
-
-    # Monthly supports trend if same direction or neutral/range/unknown
-    monthly_supports_trend = (
-        monthly_trend in ("range", "unknown") or monthly_trend == direction
-    )
-
-    # HTF **reversal mode**:
-    # Monthly trend is opposite the chosen direction,
-    # but price is at Monthly edge or Monthly S/R → acceptable reversal context.
-    monthly_opposite_reversal = False
-    if monthly_trend not in ("range", "unknown") and monthly_trend != direction:
-        if monthly_edge or monthly_sr_ok:
-            monthly_opposite_reversal = True
-
-    htf_bias_ok = weekly_daily_aligned and (monthly_supports_trend or monthly_opposite_reversal)
-
-    if htf_bias_ok:
-        if monthly_opposite_reversal:
-            mode_txt = "HTF reversal bias"
-        else:
-            mode_txt = "HTF trend-continuation bias"
-        htf_bias_note = (
-            f"{mode_txt}: {direction} "
-            f"(Monthly={monthly_trend}, Weekly={weekly_trend}, Daily={daily_trend})."
-        )
-    else:
-        htf_bias_note = (
-            "HTF bias mixed: Monthly/Weekly/Daily not cleanly aligned "
-            f"(Monthly={monthly_trend}, Weekly={weekly_trend}, Daily={daily_trend})."
-        )
-
-    # Structure: Weekly+Daily trend OR valid framework at HTF level
-    if direction == "bullish":
-        structure_trend_ok = (weekly_trend == "bullish" and daily_trend in ("bullish", "range"))
-    else:
-        structure_trend_ok = (weekly_trend == "bearish" and daily_trend in ("bearish", "range"))
-
-    structure_ok = structure_trend_ok or framework_ok
-
-    # --- Location confluence ---
-    location_ok = (
-        monthly_edge
-        or weekly_edge
-        or daily_edge
-        or monthly_sr_ok
-        or weekly_sr_ok
-        or daily_sr_ok
-        or weekly_ob_ok
-        or daily_ob_ok
-    )
-
-    location_note_parts = [
-        monthly_loc_note,
-        monthly_sr_note,
-        weekly_loc_note,
-        weekly_sr_note,
-        weekly_ob_note,
-        daily_loc_note,
-        daily_sr_note,
-        daily_ob_note,
-    ]
-    location_note = " ".join([p for p in location_note_parts if p])
-
-    # --- Confluence scoring (7/7) ---
-    if SIGNAL_MODE == "aggressive":
-        min_scan = 3
-        min_trade = 5
-    else:
-        min_scan = 4
-        min_trade = 6
-
-    score_components = {
-        "htf_bias": htf_bias_ok,
-        "location": location_ok,
-        "fib": fib_ok,
-        "liquidity": liquidity_ok,
-        "confirmation": confirmation_ok,
-        "rr": rr_ok,
-        "structure": structure_ok,
-    }
-
-    confluence = sum(1 for v in score_components.values() if v)
-
-    # Debug
-    print(
-        f"[scan_single_asset] {symbol}: confluence {confluence}/7 (mode={SIGNAL_MODE}) "
-        f"-> {score_components}"
-    )
-
-    if confluence < min_scan:
-        return None
-
-    structure_note_full = (
-        f"{monthly_trend_note} | {weekly_trend_note} | {daily_trend_note} | {framework_note}"
-    )
-
-    summary_reason = (
-        f"{direction.upper()} candidate with {confluence}/7 confluence: "
-        f"htf_bias={'yes' if htf_bias_ok else 'no'}, "
-        f"location={'yes' if location_ok else 'no'}, "
-        f"fib={'yes' if fib_ok else 'no'}, "
-        f"liquidity={'yes' if liquidity_ok else 'no'}, "
-        f"4H_confirm={'yes' if confirmation_ok else 'no'}, "
-        f"rr={'yes' if rr_ok else 'no'}, "
-        f"struct={'yes' if structure_ok else 'no'}."
+    summary = (
+        f"{direction.upper()} candidate with {confluence_score}/7 confluence: "
+        f"htf_bias={'yes' if flags['htf_bias'] else 'no'}, "
+        f"location={'yes' if flags['location'] else 'no'}, "
+        f"fib={'yes' if flags['fib'] else 'no'}, "
+        f"liquidity={'yes' if flags['liquidity'] else 'no'}, "
+        f"struct={'yes' if flags['structure'] else 'no'}, "
+        f"4H_confirm={'yes' if flags['confirmation'] else 'no'}, "
+        f"rr={'yes' if flags['rr'] else 'no'}."
     )
 
     result = ScanResult(
         symbol=symbol,
         direction=direction,
-        confluence_score=confluence,
-        timeframe="Weekly→Daily with H4 confirmation",
-        htf_bias=htf_bias_note,
-        location_note=location_note,
-        fib_note=fib_note,
-        liquidity_note=liquidity_note,
-        structure_note=structure_note_full,
-        confirmation_note=confirmation_note,
-        rr_note=rr_note,
-        summary_reason=summary_reason,
+        confluence_score=confluence_score,
+        htf_bias=notes["htf_bias"],
+        location_note=notes["location"],
+        fib_note=notes["fib"],
+        liquidity_note=notes["liquidity"],
+        structure_note=notes["structure"],
+        confirmation_note=notes["confirmation"],
+        rr_note=notes["rr"],
+        summary_reason=summary,
+        status=status,
+        entry=entry,
+        stop_loss=sl,
+        tp1=tp1,
+        tp2=tp2,
+        tp3=tp3,
+        tp4=tp4,
+        tp5=tp5,
     )
 
-    # Only attach a full trade when confluence is high enough
-    if confluence >= min_trade and entry is not None and sl is not None:
-        result.entry = entry
-        result.stop_loss = sl
-        result.tp1 = tp1
-        result.tp2 = tp2
-        result.tp3 = tp3
-        result.rr1 = rr1
-        result.rr2 = rr2
-        result.rr3 = rr3
-        # 4H decides if it's active or just a prepared zone
-        result.status = "active" if confirmation_ok else "in_progress"
+    print(
+        f"[scan_single_asset] {symbol}: confluence {confluence_score}/7 (mode={SIGNAL_MODE}) -> {flags} | status={status}"
+    )
 
     return result
 
 
-# ===== Group scans =====
-
-
 def scan_group(symbols: List[str]) -> Tuple[List[ScanResult], List[ScanResult]]:
-    """
-    Scan a list of symbols.
-
-    Returns:
-      (scan_results, trade_ideas)
-      where trade_ideas are those with high confluence and valid trade fields.
-    """
-    scan_results: List[ScanResult] = []
+    results: List[ScanResult] = []
     trade_ideas: List[ScanResult] = []
 
     for sym in symbols:
         res = scan_single_asset(sym)
-        if res is None:
+        if not res:
             continue
-        scan_results.append(res)
-        if (
-            res.entry is not None
-            and res.stop_loss is not None
-            and res.status == "active"
-        ):
+        results.append(res)
+        if res.status in ("active", "in_progress"):
             trade_ideas.append(res)
 
-    return scan_results, trade_ideas
+    return results, trade_ideas
 
 
 def scan_forex() -> Tuple[List[ScanResult], List[ScanResult]]:
@@ -1320,20 +1311,21 @@ def scan_energies() -> Tuple[List[ScanResult], List[ScanResult]]:
 
 
 def scan_all_markets() -> Dict[str, Tuple[List[ScanResult], List[ScanResult]]]:
-    """
-    Scan all configured markets and return a dict:
-      {
-        "Forex": (scan_results, trade_ideas),
-        "Metals": ...,
-        "Indices": ...,
-        "Energies": ...,
-        "Crypto": ...,
-      }
-    """
-    results: Dict[str, Tuple[List[ScanResult], List[ScanResult]]] = {}
-    results["Forex"] = scan_forex()
-    results["Metals"] = scan_metals()
-    results["Indices"] = scan_indices()
-    results["Energies"] = scan_energies()
-    results["Crypto"] = scan_crypto()
-    return results
+    markets: Dict[str, Tuple[List[ScanResult], List[ScanResult]]] = {}
+
+    fx_results, fx_trades = scan_forex()
+    markets["Forex"] = (fx_results, fx_trades)
+
+    metals_results, metals_trades = scan_metals()
+    markets["Metals"] = (metals_results, metals_trades)
+
+    indices_results, indices_trades = scan_indices()
+    markets["Indices"] = (indices_results, indices_trades)
+
+    energies_results, energies_trades = scan_energies()
+    markets["Energies"] = (energies_results, energies_trades)
+
+    crypto_results, crypto_trades = scan_crypto()
+    markets["Crypto"] = (crypto_results, crypto_trades)
+
+    return markets
