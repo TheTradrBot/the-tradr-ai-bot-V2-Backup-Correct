@@ -23,7 +23,6 @@ _STRATEGY_CONF_PARAM_COUNT = len(_STRATEGY_CONF_SIG.parameters)
 
 
 def _strategy_confluence_adapter(
-    symbol: str,
     monthly_candles: List[Dict],
     weekly_candles: List[Dict],
     daily_candles: List[Dict],
@@ -34,21 +33,11 @@ def _strategy_confluence_adapter(
     Adapter so backtest works with both old and new versions of
     strategy._compute_confluence_flags.
 
-    - New version: _compute_confluence_flags(symbol, monthly, weekly, daily, h4, direction)
+    - New version: _compute_confluence_flags(monthly, weekly, daily, h4, direction)
     - Old version: _compute_confluence_flags(monthly, weekly, daily, h4)
     """
-    if _STRATEGY_CONF_PARAM_COUNT >= 6:
-        # New version with 'symbol' and 'direction'
-        return _strategy_compute_confluence_flags(
-            symbol,
-            monthly_candles,
-            weekly_candles,
-            daily_candles,
-            h4_candles,
-            direction,
-        )
-    elif _STRATEGY_CONF_PARAM_COUNT >= 5:
-        # Mid version with 'direction' but no 'symbol'
+    if _STRATEGY_CONF_PARAM_COUNT >= 5:
+        # New version with 'direction'
         return _strategy_compute_confluence_flags(
             monthly_candles,
             weekly_candles,
@@ -438,7 +427,6 @@ def run_backtest(asset: str, period: str) -> Dict:
 
         # ---- 4D) Confluence flags & trade levels (current strategy logic via adapter) ----
         flags, notes, trade_levels = _strategy_compute_confluence_flags(
-            asset,
             monthly_slice,
             weekly_slice,
             daily_slice,

@@ -14,6 +14,9 @@ from config import (
 )
 
 
+# ========= Data structure =========
+
+
 @dataclass
 class ScanResult:
     symbol: str
@@ -37,10 +40,10 @@ class ScanResult:
     tp5: Optional[float] = None
 
 
-# ===== Generic helpers ======================================================
+# ========= Generic helpers =========
 
 
-def _safe_min_max(candles: List[dict]) -> Tuple[float, float]:
+def _safe_min_max(candles: List[Dict]) -> Tuple[float, float]:
     lows = [c["low"] for c in candles]
     highs = [c["high"] for c in candles]
     if not lows or not highs:
@@ -55,7 +58,7 @@ def _percent_distance(a: float, b: float) -> float:
 
 
 def _find_pivots(
-    candles: List[dict],
+    candles: List[Dict],
     lookback: int = 2,
 ) -> Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]:
     """
@@ -85,7 +88,7 @@ def _find_pivots(
     return highs, lows
 
 
-def _infer_trend(candles: List[dict]) -> str:
+def _infer_trend(candles: List[Dict]) -> str:
     """
     Simple HH/HL vs LH/LL based trend inference using pivots.
     Returns "bullish", "bearish", or "mixed".
@@ -117,7 +120,7 @@ def _infer_trend(candles: List[dict]) -> str:
     return "mixed"
 
 
-def _infer_daily_trend(daily_candles: List[dict]) -> str:
+def _infer_daily_trend(daily_candles: List[Dict]) -> str:
     """
     Exposed for backtest module.
     """
@@ -125,7 +128,7 @@ def _infer_daily_trend(daily_candles: List[dict]) -> str:
 
 
 def _range_position(
-    candles: List[dict],
+    candles: List[Dict],
     price: float,
 ) -> Tuple[Tuple[float, float], str, bool]:
     """
@@ -154,7 +157,7 @@ def _range_position(
         return (r_low, r_high), note, False
 
 
-# ===== S/R & Supply/Demand helpers ==========================================
+# ========= S/R & Supply/Demand helpers =========
 
 
 def _cluster_prices(prices: List[float], tolerance_pct: float = 0.25) -> List[Tuple[float, int]]:
@@ -177,7 +180,7 @@ def _cluster_prices(prices: List[float], tolerance_pct: float = 0.25) -> List[Tu
     return [(cl["price"], cl["count"]) for cl in clusters]
 
 
-def _build_sr_levels(candles: List[dict], tolerance_pct: float = 0.25) -> List[dict]:
+def _build_sr_levels(candles: List[Dict], tolerance_pct: float = 0.25) -> List[Dict]:
     """
     Build basic S/R levels from pivots and cluster them.
     Each level: {"price": float, "taps": int, "tier": int}
@@ -189,7 +192,7 @@ def _build_sr_levels(candles: List[dict], tolerance_pct: float = 0.25) -> List[d
         return []
 
     clustered = _cluster_prices(prices, tolerance_pct)
-    levels: List[dict] = []
+    levels: List[Dict] = []
     for level_price, taps in clustered:
         if taps >= 4:
             tier = 1
@@ -201,7 +204,7 @@ def _build_sr_levels(candles: List[dict], tolerance_pct: float = 0.25) -> List[d
     return levels
 
 
-def _nearest_sr_level(levels: List[dict], price: float) -> Optional[dict]:
+def _nearest_sr_level(levels: List[Dict], price: float) -> Optional[Dict]:
     """
     Pick nearest S/R level to price and annotate with distance in %.
     """
@@ -222,7 +225,7 @@ def _nearest_sr_level(levels: List[dict], price: float) -> Optional[dict]:
 
 
 def _approx_near_zone(
-    candles: List[dict],
+    candles: List[Dict],
     price: float,
     zone_type: str,  # "supply" or "demand"
     lookback: int = 80,
@@ -263,7 +266,7 @@ def _approx_near_zone(
     return z_low, z_high, dist_pct
 
 
-# ===== Bias / fib / liquidity / structure / confirmation / R/R ==============
+# ========= Bias / Fib / Liquidity / Structure / 4H / R:R =========
 
 
 def _pick_direction_from_bias(
@@ -309,9 +312,9 @@ def _pick_direction_from_bias(
 
 
 def _location_context(
-    monthly_candles: List[dict],
-    weekly_candles: List[dict],
-    daily_candles: List[dict],
+    monthly_candles: List[Dict],
+    weekly_candles: List[Dict],
+    daily_candles: List[Dict],
     price: float,
     direction: str,
 ) -> Tuple[str, bool]:
@@ -326,7 +329,7 @@ def _location_context(
     zone_type = "supply" if direction == "bearish" else "demand"
 
     # === Monthly ===
-    (_mn_low, _mn_high), mn_note, mn_edge = _range_position(monthly_candles, price)
+    (mn_low, mn_high), mn_note, mn_edge = _range_position(monthly_candles, price)
     notes.append(f"Monthly: {mn_note}.")
     if mn_edge:
         ok_flags.append(True)
@@ -341,7 +344,7 @@ def _location_context(
         if mn_near["dist_pct"] <= 0.30:
             ok_flags.append(True)
 
-    mn_zone = _approx_near_zone(monthly_candles, price, zone_type, lookback=80)
+    mn_zone = _approx_near_zone(monthly_candles, price, zone_type, lookback=120)
     if mn_zone:
         z_low, z_high, z_dist = mn_zone
         side = "below" if zone_type == "supply" else "above"
@@ -353,7 +356,7 @@ def _location_context(
             ok_flags.append(True)
 
     # === Weekly ===
-    (_wk_low, _wk_high), wk_note, wk_edge = _range_position(weekly_candles, price)
+    (wk_low, wk_high), wk_note, wk_edge = _range_position(weekly_candles, price)
     notes.append(f"Weekly: {wk_note}.")
     if wk_edge:
         ok_flags.append(True)
@@ -368,7 +371,7 @@ def _location_context(
         if wk_near["dist_pct"] <= 0.30:
             ok_flags.append(True)
 
-    wk_zone = _approx_near_zone(weekly_candles, price, zone_type, lookback=120)
+    wk_zone = _approx_near_zone(weekly_candles, price, zone_type, lookback=160)
     if wk_zone:
         z_low, z_high, z_dist = wk_zone
         side = "below" if zone_type == "supply" else "above"
@@ -409,7 +412,7 @@ def _location_context(
         if d_near["dist_pct"] <= 0.30:
             ok_flags.append(True)
 
-    d_zone = _approx_near_zone(daily_candles, price, zone_type, lookback=80)
+    d_zone = _approx_near_zone(daily_candles, price, zone_type, lookback=120)
     if d_zone:
         z_low, z_high, z_dist = d_zone
         side = "below" if zone_type == "supply" else "above"
@@ -440,7 +443,7 @@ def _location_context(
 
 
 def _find_last_swing_leg_for_fib(
-    candles: List[dict],
+    candles: List[Dict],
     direction: str,
 ) -> Optional[Tuple[float, float]]:
     """
@@ -474,8 +477,8 @@ def _find_last_swing_leg_for_fib(
 
 
 def _fib_context(
-    weekly_candles: List[dict],
-    daily_candles: List[dict],
+    weekly_candles: List[Dict],
+    daily_candles: List[Dict],
     direction: str,
     price: float,
 ) -> Tuple[str, bool]:
@@ -546,7 +549,7 @@ def _fib_context(
 
 
 def _daily_liquidity_context(
-    daily_candles: List[dict],
+    daily_candles: List[Dict],
     price: float,
 ) -> Tuple[str, bool]:
     """
@@ -612,7 +615,10 @@ def _daily_liquidity_context(
     # --- Internal equal highs / equal lows (internal liquidity) ---
     highs_piv, lows_piv = _find_pivots(daily_candles)
 
-    def _find_equal_level(pivots: List[Tuple[int, float]], tol_pct: float = 0.05) -> Optional[float]:
+    def _find_equal_level(
+        pivots: List[Tuple[int, float]],
+        tol_pct: float = 0.05,
+    ) -> Optional[float]:
         if len(pivots) < 2:
             return None
         n = len(pivots)
@@ -645,7 +651,7 @@ def _daily_liquidity_context(
     return note, ok
 
 
-# ===== Structural frameworks (Daily) ========================================
+# ========= Structural frameworks (Daily) =========
 
 
 def _find_swings(
@@ -715,16 +721,16 @@ def _detect_structural_frameworks_d1(
         h1, h2, h3 = sh[-3], sh[-2], sh[-1]
         if highs[h2] > highs[h1] and highs[h2] > highs[h3]:
             # neck lows: min lows between h1-h2 and h2-h3
-            neck1 = min(lows[h1:h2 + 1])
-            neck2 = min(lows[h2:h3 + 1])
+            neck1 = min(lows[h1 : h2 + 1])
+            neck2 = min(lows[h2 : h3 + 1])
             neckline = (neck1 + neck2) / 2.0
             last_close = closes[-1]
 
             if last_close < neckline * 0.999:  # broke neckline
-                framework_ok = (direction == "bearish")
+                framework_ok = direction == "bearish"
                 framework_name = "Bearish Head & Shoulders"
                 note_parts.append(
-                    f"Daily H&S detected: head at {h2}, neckline ≈ {neckline:.5f}, "
+                    f"Daily H&S detected: head at index {h2}, neckline ≈ {neckline:.5f}, "
                     f"price closed below neckline."
                 )
 
@@ -733,51 +739,49 @@ def _detect_structural_frameworks_d1(
         l1, l2, l3 = sl[-3], sl[-2], sl[-1]
         if lows[l2] < lows[l1] and lows[l2] < lows[l3]:
             # neck highs: max highs between l1-l2 and l2-l3
-            neck1 = max(highs[l1:l2 + 1])
-            neck2 = max(highs[l2:l3 + 1])
+            neck1 = max(highs[l1 : l2 + 1])
+            neck2 = max(highs[l2 : l3 + 1])
             neckline = (neck1 + neck2) / 2.0
             last_close = closes[-1]
 
             if last_close > neckline * 1.001:  # broke neckline
-                framework_ok = (direction == "bullish")
+                framework_ok = direction == "bullish"
                 framework_name = "Bullish Inverse Head & Shoulders"
                 note_parts.append(
-                    f"Daily inverse H&S detected: head at {l2}, neckline ≈ {neckline:.5f}, "
+                    f"Daily inverse H&S detected: head at index {l2}, neckline ≈ {neckline:.5f}, "
                     f"price closed above neckline."
                 )
 
     # --- 2) Try to detect Bullish N / Bearish V continuation patterns ---
-    # Very simplified: look at last 3 swing points in trend direction.
     if not framework_ok:
-        if direction == "bullish" and len(swing_lows) >= 2 and len(swing_highs) >= 1:
-            # pattern: low (HL) -> high (HH) -> higher low (HL)
-            last_low_idx = swing_lows[-1]
-            prev_low_idx = swing_lows[-2]
-            max_high_idx = max(swing_highs)  # coarse approx for leg 1 high
+        # Bullish N (continuation)
+        if direction == "bullish" and len(sl) >= 2 and len(sh) >= 1:
+            last_low_idx = sl[-1]
+            prev_low_idx = sl[-2]
+            max_high_idx = max(sh)  # coarse approx for leg-1 high
 
             if prev_low_idx < max_high_idx < last_low_idx:
-                # leg-1: prev_low -> max_high, leg-2: max_high -> last_low
                 l1_low = lows[prev_low_idx]
-                l1_high = highs[max_high_idx]
                 l2_low = lows[last_low_idx]
-                if l1_high > l1_low and l2_low > l1_low:
+                h1 = highs[max_high_idx]
+                if h1 > l1_low and l2_low > l1_low:
                     framework_ok = True
                     framework_name = "Bullish N (continuation)"
                     note_parts.append(
                         "Daily Bullish N pattern: impulse up, corrective pullback forming a higher low."
                     )
 
-        if direction == "bearish" and len(swing_highs) >= 2 and len(swing_lows) >= 1:
-            # pattern: high (LH) -> low (LL) -> lower high (LH)
-            last_high_idx = swing_highs[-1]
-            prev_high_idx = swing_highs[-2]
-            min_low_idx = min(swing_lows)  # coarse approx for leg 1 low
+        # Bearish V (continuation)
+        if direction == "bearish" and len(sh) >= 2 and len(sl) >= 1:
+            last_high_idx = sh[-1]
+            prev_high_idx = sh[-2]
+            min_low_idx = min(sl)  # coarse approx for leg-1 low
 
             if prev_high_idx < min_low_idx < last_high_idx:
-                l1_high = highs[prev_high_idx]
+                h1_high = highs[prev_high_idx]
                 l1_low = lows[min_low_idx]
-                l2_high = highs[last_high_idx]
-                if l1_low < l1_high and l2_high < l1_high:
+                h2_high = highs[last_high_idx]
+                if l1_low < h1_high and h2_high < h1_high:
                     framework_ok = True
                     framework_name = "Bearish V (continuation)"
                     note_parts.append(
@@ -794,10 +798,9 @@ def _detect_structural_frameworks_d1(
 
 
 def _structure_context(
-    symbol: str,
-    m_candles: List[Dict],
-    w_candles: List[Dict],
-    d_candles: List[Dict],
+    monthly_candles: List[Dict],
+    weekly_candles: List[Dict],
+    daily_candles: List[Dict],
     direction: str,
 ) -> Tuple[bool, str]:
     """
@@ -806,18 +809,18 @@ def _structure_context(
     Returns:
         (structure_ok, struct_note)
     """
-    # --- basic trend on W & D ---
+
     def _trend_from_swings(candles: List[Dict]) -> str:
         if not candles or len(candles) < 20:
             return "mixed"
 
-        swing_highs, swing_lows = _find_swings(candles, left=2, right=2)
+        swing_highs_idx, swing_lows_idx = _find_swings(candles, left=2, right=2)
 
-        if len(swing_highs) < 2 or len(swing_lows) < 2:
+        if len(swing_highs_idx) < 2 or len(swing_lows_idx) < 2:
             return "mixed"
 
-        highs = [candles[i]["high"] for i in swing_highs]
-        lows = [candles[i]["low"] for i in swing_lows]
+        highs = [candles[i]["high"] for i in swing_highs_idx]
+        lows = [candles[i]["low"] for i in swing_lows_idx]
 
         # very coarse: last two highs/lows
         h1, h2 = highs[-2], highs[-1]
@@ -829,24 +832,19 @@ def _structure_context(
             return "bearish"
         return "mixed"
 
-    # we keep m_candles available if later you want to add "monthly structure"
-    _ = m_candles
+    w_trend = _trend_from_swings(weekly_candles)
+    d_trend = _trend_from_swings(daily_candles)
 
-    w_trend = _trend_from_swings(w_candles)
-    d_trend = _trend_from_swings(d_candles)
-
-    # --- textual baseline ---
     parts: List[str] = []
     parts.append(f"Weekly structure: {w_trend}.")
     parts.append(f"Daily structure: {d_trend}.")
 
     # --- framework detection on Daily ---
     framework_ok, framework_name, framework_note = _detect_structural_frameworks_d1(
-        d_candles, direction
+        daily_candles, direction
     )
     parts.append(framework_note)
 
-    # --- decide structure_ok ---
     structure_ok = False
 
     # 1) pure trend alignment
@@ -857,11 +855,10 @@ def _structure_context(
         if w_trend == "bearish" and d_trend in ("bearish", "mixed"):
             structure_ok = True
 
-    # 2) OR we accept a strong reversal / continuation framework
+    # 2) OR we accept a strong reversal framework
     if framework_ok:
         structure_ok = True
 
-    # small textual tag about how structure supports the idea
     if structure_ok:
         if framework_ok and framework_name:
             parts.append(
@@ -880,89 +877,57 @@ def _structure_context(
 
 
 def _h4_confirmation(
-    h4_candles: List[dict],
+    h4_candles: List[Dict],
     direction: str,
 ) -> Tuple[str, bool]:
     """
-    4H confirmation (less condensed):
-
-    We approximate a real BOS idea:
-    - For LONGS: look for a recent 4H candle that CLOSED above the previous
-      swing high → BOS up.
-    - For SHORTS: look for a recent 4H candle that CLOSED below the previous
-      swing low → BOS down.
+    4H confirmation approximation in Blueprint terms:
+    - We want a BOS (break of structure) in the trade direction.
+    - For shorts: recent close below a meaningful swing low.
+    - For longs: recent close above a meaningful swing high.
     """
     if not h4_candles or len(h4_candles) < 30:
-        return "4H: not enough data for BOS confirmation.", False
+        return "4H: not enough data for confirmation.", False
 
     swing_highs, swing_lows = _find_swings(h4_candles, left=2, right=2)
     closes = [c["close"] for c in h4_candles]
 
-    # We only care about *recent* structure for confirmation.
-    recent_window = 30
-    last_index = len(h4_candles) - 1
-    recent_start = max(0, last_index - recent_window)
-
-    # -------- BULLISH (need BOS UP over previous swing high) --------
-    if direction == "bullish":
-        if len(swing_highs) < 2:
-            return "4H: no clear swing highs to confirm longs.", False
-
-        prev_high_idx = swing_highs[-2]
-        prev_high = h4_candles[prev_high_idx]["high"]
-
-        start_idx = max(prev_high_idx + 1, recent_start)
-        bos_idx: Optional[int] = None
-
-        for i in range(start_idx, len(h4_candles)):
-            if closes[i] > prev_high * 1.0005:  # small buffer
-                bos_idx = i
-                break
-
-        if bos_idx is None:
-            return (
-                f"4H: no BOS up – no recent 4H close above key swing high around {prev_high:.5f}.",
-                False,
-            )
-
-        note = (
-            f"4H confirmation: BOS DOWN – recent 4H candle (index {bos_idx}) closed above "
-            f"previous swing high around {prev_high:.5f}."
-        )
-        return note, True
-
-    # -------- BEARISH (need BOS DOWN under previous swing low) --------
     if direction == "bearish":
-        if len(swing_lows) < 2:
-            return "4H: no clear swing lows to confirm shorts.", False
-
-        prev_low_idx = swing_lows[-2]
-        prev_low = h4_candles[prev_low_idx]["low"]
-
-        start_idx = max(prev_low_idx + 1, recent_start)
-        bos_idx: Optional[int] = None
-
-        for i in range(start_idx, len(h4_candles)):
-            if closes[i] < prev_low * 0.9995:  # small buffer
-                bos_idx = i
-                break
-
-        if bos_idx is None:
+        if not swing_lows:
+            return "4H: no clear swing lows to confirm BOS down.", False
+        key_idx = swing_lows[-1]
+        key_level = h4_candles[key_idx]["low"]
+        last_close = closes[-1]
+        if last_close < key_level:
             return (
-                f"4H: no BOS down – no recent 4H close below key swing low around {prev_low:.5f}.",
+                f"4H confirmation: BOS in bearish direction – recent 4H close below key swing low around {key_level:.5f}.",
+                True,
+            )
+        else:
+            return (
+                f"4H: no BOS down – no recent 4H close below key swing low around {key_level:.5f}.",
                 False,
             )
 
-        note = (
-            f"4H confirmation: BOS DOWN – recent 4H candle (index {bos_idx}) closed below "
-            f"previous swing low around {prev_low:.5f}."
-        )
-        return note, True
+    else:  # bullish
+        if not swing_highs:
+            return "4H: no clear swing highs to confirm BOS up.", False
+        key_idx = swing_highs[-1]
+        key_level = h4_candles[key_idx]["high"]
+        last_close = closes[-1]
+        if last_close > key_level:
+            return (
+                f"4H confirmation: BOS in bullish direction – recent 4H close above key swing high around {key_level:.5f}.",
+                True,
+            )
+        else:
+            return (
+                f"4H: no BOS up – no recent 4H close above key swing high around {key_level:.5f}.",
+                False,
+            )
 
-    return "4H: no directional bias to confirm.", False
 
-
-def _atr(candles: List[dict], period: int = 14) -> float:
+def _atr(candles: List[Dict], period: int = 14) -> float:
     """Very simple ATR approximation using high-low only."""
     if len(candles) < 2:
         return 0.0
@@ -974,7 +939,7 @@ def _atr(candles: List[dict], period: int = 14) -> float:
 
 
 def _rr_context(
-    daily_candles: List[dict],
+    daily_candles: List[Dict],
     direction: str,
 ) -> Tuple[
     str,
@@ -988,31 +953,43 @@ def _rr_context(
     Optional[float],
 ]:
     """
-    TP1–TP5 based on Fibonacci extensions of the *Daily impulse leg*:
+    R/R + trade levels (TP1–TP5) based on the *Daily impulse leg*.
 
-    - TP1: -0.25
-    - TP2: -0.65
-    - TP3: -1.00
-    - TP4: -1.42
-    - TP5: -2.00
+    Logic:
+    - Try to find the last meaningful Daily impulse leg via `_find_last_swing_leg_for_fib`.
+    - Entry is approximated in the golden pocket (0.618–0.796) of that leg.
+    - SL is placed beyond the swing extreme with a buffer.
+    - TP1–TP5 are projected using Fib-style extensions of that leg:
 
-    Entry is approximated in the golden pocket of that leg.
-    SL is placed beyond the swing extreme with a buffer.
+        TP1: -0.25
+        TP2: -0.65
+        TP3: -1.00
+        TP4: -1.42
+        TP5: -2.00
 
-    If no clear impulse leg exists, we fall back to ATR-based pseudo-targets
-    and explicitly say so in the note.
+      (For longs these are above the high, for shorts below the low.)
+
+    - We mark the R/R pillar `True` as long as the first partial (TP1)
+      is at least ~0.5R. This is more lenient than the original 1.5R
+      so that valid Blueprint setups are not filtered out just because
+      TP1 is relatively conservative.
+
+    - If no clear impulse leg exists, we fall back to an ATR-based
+      pseudo-R/R using 1×ATR stops and multi-R targets.
     """
     if not daily_candles:
         return "R/R: no data.", False, None, None, None, None, None, None, None
 
     current = daily_candles[-1]["close"]
+
+    # ---- Try fib-based targets from the Daily impulse leg ----
     leg = _find_last_swing_leg_for_fib(daily_candles, direction)
 
-    # ---- Try fib-based targets from Daily impulse leg ----
     if leg:
         lo, hi = leg
         span = hi - lo
         if span > 0:
+            # Golden pocket zone for entry
             if direction == "bullish":
                 gp_low = lo + span * 0.618
                 gp_high = lo + span * 0.796
@@ -1021,19 +998,21 @@ def _rr_context(
                 else:
                     entry = (gp_low + gp_high) / 2.0
 
+                # SL below swing low with buffer
                 sl = lo - span * 0.25
                 risk = entry - sl
 
-                ext = [0.25, 0.65, 1.0, 1.42, 2.0]
-                tp1 = hi + span * ext[0]
-                tp2 = hi + span * ext[1]
-                tp3 = hi + span * ext[2]
-                tp4 = hi + span * ext[3]
-                tp5 = hi + span * ext[4]
+                # Extensions above high
+                ext_factors = [0.25, 0.65, 1.0, 1.42, 2.0]
+                tp1 = hi + span * ext_factors[0]
+                tp2 = hi + span * ext_factors[1]
+                tp3 = hi + span * ext_factors[2]
+                tp4 = hi + span * ext_factors[3]
+                tp5 = hi + span * ext_factors[4]
 
                 if risk > 0:
                     rr1 = (tp1 - entry) / risk
-                    rr_ok = rr1 >= 1.5
+                    rr_ok = rr1 >= 0.5
                     note = (
                         "R/R: using Daily impulse leg; entry in golden pocket, SL below swing low. "
                         "TP1–TP5 based on Fib extensions (-0.25, -0.65, -1.00, -1.42, -2.00). "
@@ -1049,19 +1028,21 @@ def _rr_context(
                 else:
                     entry = (gp_low + gp_high) / 2.0
 
+                # SL above swing high with buffer
                 sl = hi + span * 0.25
                 risk = sl - entry
 
-                ext = [0.25, 0.65, 1.0, 1.42, 2.0]
-                tp1 = lo - span * ext[0]
-                tp2 = lo - span * ext[1]
-                tp3 = lo - span * ext[2]
-                tp4 = lo - span * ext[3]
-                tp5 = lo - span * ext[4]
+                # Extensions below low
+                ext_factors = [0.25, 0.65, 1.0, 1.42, 2.0]
+                tp1 = lo - span * ext_factors[0]
+                tp2 = lo - span * ext_factors[1]
+                tp3 = lo - span * ext_factors[2]
+                tp4 = lo - span * ext_factors[3]
+                tp5 = lo - span * ext_factors[4]
 
                 if risk > 0:
                     rr1 = (entry - tp1) / risk
-                    rr_ok = rr1 >= 1.5
+                    rr_ok = rr1 >= 0.5
                     note = (
                         "R/R: using Daily impulse leg; entry in golden pocket, SL above swing high. "
                         "TP1–TP5 based on Fib extensions (-0.25, -0.65, -1.00, -1.42, -2.00). "
@@ -1072,14 +1053,34 @@ def _rr_context(
     # ---- Fallback: ATR-based targets if no clean impulse leg ----
     atr = _atr(daily_candles)
     if atr <= 0:
-        return "R/R: no clear impulse leg and ATR too small; skipping R/R.", False, None, None, None, None, None, None, None
+        return (
+            "R/R: no clear Daily impulse leg and ATR too small; skipping R/R.",
+            False,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
 
     entry = current
     if direction == "bullish":
         sl = entry - atr
         risk = atr
         if sl <= 0 or risk <= 0:
-            return "R/R: invalid SL level.", False, None, None, None, None, None, None, None
+            return (
+                "R/R: invalid SL level.",
+                False,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
         tp1 = entry + risk * 1.5
         tp2 = entry + risk * 2.5
         tp3 = entry + risk * 4.0
@@ -1096,7 +1097,7 @@ def _rr_context(
         tp5 = entry - risk * 8.0
         rr1 = (entry - tp1) / risk
 
-    rr_ok = rr1 >= 1.5
+    rr_ok = rr1 >= 0.5
     note = (
         "R/R: no clear Daily impulse leg for Fib; using ATR-based pseudo-targets instead. "
         f"Approx first target ≈ {rr1:.1f}R."
@@ -1105,11 +1106,10 @@ def _rr_context(
 
 
 def _compute_confluence_flags(
-    symbol: str,
-    monthly_candles: List[dict],
-    weekly_candles: List[dict],
-    daily_candles: List[dict],
-    h4_candles: List[dict],
+    monthly_candles: List[Dict],
+    weekly_candles: List[Dict],
+    daily_candles: List[Dict],
+    h4_candles: List[Dict],
     direction: str,
 ) -> Tuple[
     Dict[str, bool],
@@ -1152,7 +1152,7 @@ def _compute_confluence_flags(
 
     # 5) Structure (Weekly + Daily + frameworks)
     struct_ok, struct_note = _structure_context(
-        symbol, monthly_candles, weekly_candles, daily_candles, direction
+        monthly_candles, weekly_candles, daily_candles, direction
     )
 
     # 6) 4H confirmation
@@ -1195,7 +1195,7 @@ def _compute_confluence_flags(
     return flags, notes, trade_levels
 
 
-# ===== Public scan functions ================================================
+# ========= Public scan functions =========
 
 
 def scan_single_asset(symbol: str) -> Optional[ScanResult]:
@@ -1203,13 +1203,11 @@ def scan_single_asset(symbol: str) -> Optional[ScanResult]:
     Full top-down Blueprint scan for a single asset.
     Returns a ScanResult or None if data unavailable.
     """
-
-    # OANDA hard limit: count <= 5000.
-    # We respect that but still pull as deep as possible.
-    monthly = get_ohlcv(symbol, timeframe="M", count=300)    # ~25y
-    weekly = get_ohlcv(symbol, timeframe="W", count=1500)    # ~28y
-    daily = get_ohlcv(symbol, timeframe="D", count=5000)     # API max
-    h4 = get_ohlcv(symbol, timeframe="H4", count=5000)       # API max
+    # Use as much history as OANDA reasonably allows, without exceeding 'count' limits.
+    monthly = get_ohlcv(symbol, timeframe="M", count=240)   # ~20 years
+    weekly = get_ohlcv(symbol, timeframe="W", count=520)    # ~10 years
+    daily = get_ohlcv(symbol, timeframe="D", count=2000)    # ~8 years
+    h4 = get_ohlcv(symbol, timeframe="H4", count=2000)
 
     if not daily or not weekly:
         return None
@@ -1220,7 +1218,7 @@ def scan_single_asset(symbol: str) -> Optional[ScanResult]:
     direction, htf_bias_text, _ = _pick_direction_from_bias(mn_trend, wk_trend, d_trend)
 
     flags, notes, trade_levels = _compute_confluence_flags(
-        symbol, monthly, weekly, daily, h4, direction
+        monthly, weekly, daily, h4, direction
     )
     entry, sl, tp1, tp2, tp3, tp4, tp5 = trade_levels
 
