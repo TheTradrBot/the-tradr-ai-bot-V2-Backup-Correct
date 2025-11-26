@@ -53,6 +53,7 @@ def create_setup_embed(
     description: str = None,
     account_size: float = ACCOUNT_SIZE,
     risk_pct: float = RISK_PER_TRADE_PCT,
+    entry_datetime: Optional[datetime] = None,
 ) -> discord.Embed:
     """
     Create a professional embed for a new trade setup.
@@ -87,7 +88,7 @@ def create_setup_embed(
         title=title,
         description=desc,
         color=color,
-        timestamp=datetime.utcnow()
+        timestamp=entry_datetime or datetime.utcnow()
     )
     
     sizing = calculate_position_size_5ers(
@@ -109,7 +110,9 @@ def create_setup_embed(
     
     stop_pips = sizing.get("stop_pips", 0)
     
-    levels_text = f"**Entry:** {entry:.5f}\n"
+    entry_date_str = (entry_datetime or datetime.utcnow()).strftime("%Y-%m-%d %H:%M UTC")
+    levels_text = f"**Entry Date:** {entry_date_str}\n"
+    levels_text += f"**Entry:** {entry:.5f}\n"
     levels_text += f"**Stoploss:** {stop_loss:.5f}  ({stop_pips:.1f} pips)\n"
     if tp1:
         levels_text += f"**TP1:** {tp1:.5f}  ({rr_values['tp1_rr']:.2f}R)\n"
@@ -157,6 +160,7 @@ def create_activation_embed(
     risk_usd: float,
     risk_pct: float,
     trade_id: str = None,
+    entry_datetime: Optional[datetime] = None,
 ) -> discord.Embed:
     """Create embed for trade activation (order filled)."""
     is_long = direction.lower() == "bullish"
@@ -169,12 +173,13 @@ def create_activation_embed(
     embed = discord.Embed(
         title=title,
         color=COLOR_SUCCESS,
-        timestamp=datetime.utcnow()
+        timestamp=entry_datetime or datetime.utcnow()
     )
     
+    entry_date_str = (entry_datetime or datetime.utcnow()).strftime("%Y-%m-%d %H:%M UTC")
+    embed.add_field(name="Entry Date", value=entry_date_str, inline=True)
     embed.add_field(name="Entry", value=f"{entry:.5f}", inline=True)
     embed.add_field(name="Stop Loss", value=f"{stop_loss:.5f}", inline=True)
-    embed.add_field(name="Status", value="OPEN", inline=True)
     
     embed.add_field(
         name="Risk",
@@ -202,6 +207,7 @@ def create_tp_hit_embed(
     remaining_lots: float = None,
     current_sl: float = None,
     moved_to_be: bool = False,
+    entry_datetime: Optional[datetime] = None,
 ) -> discord.Embed:
     """Create embed for take profit hit."""
     display_symbol = symbol.replace("_", "/")
@@ -215,6 +221,10 @@ def create_tp_hit_embed(
         color=COLOR_SUCCESS,
         timestamp=datetime.utcnow()
     )
+    
+    if entry_datetime:
+        entry_date_str = entry_datetime.strftime("%Y-%m-%d %H:%M UTC")
+        embed.add_field(name="Entry Date", value=entry_date_str, inline=True)
     
     embed.add_field(name=f"TP{tp_level}", value=f"{tp_price:.5f}", inline=True)
     
@@ -254,6 +264,7 @@ def create_sl_hit_embed(
     result_r: float,
     daily_pnl_usd: float = None,
     daily_pnl_pct: float = None,
+    entry_datetime: Optional[datetime] = None,
 ) -> discord.Embed:
     """Create embed for stop loss hit."""
     display_symbol = symbol.replace("_", "/")
@@ -267,6 +278,10 @@ def create_sl_hit_embed(
         color=COLOR_ERROR,
         timestamp=datetime.utcnow()
     )
+    
+    if entry_datetime:
+        entry_date_str = entry_datetime.strftime("%Y-%m-%d %H:%M UTC")
+        embed.add_field(name="Entry Date", value=entry_date_str, inline=True)
     
     embed.add_field(name="SL", value=f"{sl_price:.5f}", inline=True)
     
@@ -295,6 +310,7 @@ def create_trade_closed_embed(
     exit_reason: str = "Manual",
     daily_pnl_usd: float = None,
     daily_pnl_pct: float = None,
+    entry_datetime: Optional[datetime] = None,
 ) -> discord.Embed:
     """Create embed for trade closed."""
     display_symbol = symbol.replace("_", "/")
@@ -312,6 +328,10 @@ def create_trade_closed_embed(
         color=color,
         timestamp=datetime.utcnow()
     )
+    
+    if entry_datetime:
+        entry_date_str = entry_datetime.strftime("%Y-%m-%d %H:%M UTC")
+        embed.add_field(name="Entry Date", value=entry_date_str, inline=True)
     
     embed.add_field(name="Exit Price", value=f"{avg_exit:.5f}", inline=True)
     embed.add_field(name="Exit Reason", value=exit_reason, inline=True)

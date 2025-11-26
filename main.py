@@ -55,6 +55,7 @@ from data import get_ohlcv, get_cache_stats, clear_cache, get_current_prices
 ACTIVE_TRADES: dict[str, ScanResult] = {}
 TRADE_PROGRESS: dict[str, dict[str, bool]] = {}
 TRADE_SIZING: dict[str, dict] = {}
+TRADE_ENTRY_DATES: dict[str, object] = {}  # Track entry datetime for each trade
 
 
 def split_message(text: str, limit: int = 1900) -> list[str]:
@@ -157,6 +158,7 @@ async def check_trade_updates(updates_channel: discord.abc.Messageable) -> None:
                 progress["sl"] = True
                 closed = True
                 
+                entry_dt = TRADE_ENTRY_DATES.get(key)
                 embed = create_sl_hit_embed(
                     symbol=trade.symbol,
                     direction=direction,
@@ -164,6 +166,7 @@ async def check_trade_updates(updates_channel: discord.abc.Messageable) -> None:
                     result_usd=-risk_usd,
                     result_pct=-RISK_PER_TRADE_PCT * 100,
                     result_r=-1.0,
+                    entry_datetime=entry_dt,
                 )
                 embeds_to_send.append(embed)
 
@@ -200,6 +203,7 @@ async def check_trade_updates(updates_channel: discord.abc.Messageable) -> None:
                     remaining_pct = 100 - (tp_num * 33.3)
                     remaining_lots = lot_size * (remaining_pct / 100)
                     
+                    entry_dt = TRADE_ENTRY_DATES.get(key)
                     embed = create_tp_hit_embed(
                         symbol=trade.symbol,
                         direction=direction,
@@ -212,6 +216,7 @@ async def check_trade_updates(updates_channel: discord.abc.Messageable) -> None:
                         remaining_lots=max(0, remaining_lots),
                         current_sl=entry if tp_num == 1 else None,
                         moved_to_be=(tp_num == 1),
+                        entry_datetime=entry_dt,
                     )
                     embeds_to_send.append(embed)
 
@@ -230,6 +235,7 @@ async def check_trade_updates(updates_channel: discord.abc.Messageable) -> None:
                     for _, _, level, _ in tp_levels if level is not None
                 ) / 3
                 
+                entry_dt = TRADE_ENTRY_DATES.get(key)
                 embed = create_trade_closed_embed(
                     symbol=trade.symbol,
                     direction=direction,
@@ -238,12 +244,14 @@ async def check_trade_updates(updates_channel: discord.abc.Messageable) -> None:
                     total_result_pct=RISK_PER_TRADE_PCT * total_rr * 100,
                     total_result_r=total_rr,
                     exit_reason="All TPs Hit",
+                    entry_datetime=entry_dt,
                 )
                 embeds_to_send.append(embed)
             
             ACTIVE_TRADES.pop(key, None)
             TRADE_PROGRESS.pop(key, None)
             TRADE_SIZING.pop(key, None)
+            TRADE_ENTRY_DATES.pop(key, None)
 
         for embed in embeds_to_send:
             await updates_channel.send(embed=embed)
