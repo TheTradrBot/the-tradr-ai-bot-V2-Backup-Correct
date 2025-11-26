@@ -452,7 +452,7 @@ async def live(interaction: discord.Interaction):
     }
 
     lines: list[str] = []
-    lines.append("**Live Prices**")
+    lines.append("**Live Prices (Real-time)**")
     lines.append("")
 
     for name, symbols in groups.items():
@@ -462,13 +462,16 @@ async def live(interaction: discord.Interaction):
             lines.append("")
             continue
 
+        prices = get_current_prices(symbols)
+        
         for sym in symbols:
-            candles = get_ohlcv(sym, timeframe="D", count=1)
-            if not candles:
-                lines.append(f"{sym}: N/A")
+            if sym in prices:
+                mid = prices[sym]["mid"]
+                bid = prices[sym]["bid"]
+                ask = prices[sym]["ask"]
+                lines.append(f"{sym}: `{mid:.5f}` (bid: {bid:.5f}, ask: {ask:.5f})")
             else:
-                price = candles[-1]["close"]
-                lines.append(f"{sym}: `{price:.5f}`")
+                lines.append(f"{sym}: N/A")
         lines.append("")
 
     msg = "\n".join(lines)
