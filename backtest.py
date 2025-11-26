@@ -78,22 +78,22 @@ def _parse_period(period_str: str) -> Tuple[Optional[date], Optional[date]]:
 
 
 def _candle_to_datetime(candle: Dict) -> Optional[datetime]:
-    """Get datetime from a candle dict."""
+    """Get datetime from a candle dict, normalized to UTC."""
     t = candle.get("time") or candle.get("timestamp") or candle.get("date")
     if t is None:
         return None
 
+    dt = None
     if isinstance(t, datetime):
-        return t
-    if isinstance(t, date):
-        return datetime(t.year, t.month, t.day, tzinfo=timezone.utc)
-    if isinstance(t, (int, float)):
+        dt = t
+    elif isinstance(t, date):
+        dt = datetime(t.year, t.month, t.day, tzinfo=timezone.utc)
+    elif isinstance(t, (int, float)):
         try:
-            return datetime.utcfromtimestamp(t).replace(tzinfo=timezone.utc)
+            dt = datetime.utcfromtimestamp(t).replace(tzinfo=timezone.utc)
         except Exception:
             return None
-
-    if isinstance(t, str):
+    elif isinstance(t, str):
         s = t.strip()
         try:
             s2 = s.replace("Z", "+00:00")
@@ -102,18 +102,26 @@ def _candle_to_datetime(candle: Dict) -> Optional[datetime]:
                 decimals = "".join(ch for ch in tail if ch.isdigit())[:6]
                 rest = tail[len(decimals):]
                 s2 = f"{head}.{decimals}{rest}"
-            return datetime.fromisoformat(s2)
+            dt = datetime.fromisoformat(s2)
         except Exception:
             pass
 
-        fmts = ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"]
-        for fmt in fmts:
-            try:
-                return datetime.strptime(s[:len(fmt)], fmt)
-            except Exception:
-                continue
-
-    return None
+        if dt is None:
+            fmts = ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"]
+            for fmt in fmts:
+                try:
+                    dt = datetime.strptime(s[:len(fmt)], fmt)
+                    break
+                except Exception:
+                    continue
+    
+    if dt is not None:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+    
+    return dt
 
 
 def _candle_to_date(candle: Dict) -> Optional[date]:
@@ -123,6 +131,18 @@ def _candle_to_date(candle: Dict) -> Optional[date]:
 
 def _build_date_list(candles: List[Dict]) -> List[Optional[date]]:
     return [_candle_to_date(c) for c in candles]
+
+
+def _build_dt_list(candles: List[Dict]) -> List[Optional[datetime]]:
+    """Build list of datetime objects for timestamp-accurate slicing."""
+    return [_candle_to_datetime(c) for c in candles]
+
+
+def _slice_up_to_dt(candles: List[Dict], dts: List[Optional[datetime]], cutoff_dt: Optional[datetime]) -> List[Dict]:
+    """Slice candles up to and including cutoff datetime (timestamp-accurate)."""
+    if cutoff_dt is None:
+        return []
+    return [c for c, t in zip(candles, dts) if t and t <= cutoff_dt]
 
 
 def _maybe_exit_trade(
@@ -294,6 +314,11 @@ def run_backtest(asset: str, period: str) -> Dict:
     weekly_dates = _build_date_list(weekly)
     monthly_dates = _build_date_list(monthly)
     h4_dates = _build_date_list(h4)
+    
+    daily_dts = _build_dt_list(daily)
+    weekly_dts = _build_dt_list(weekly)
+    monthly_dts = _build_dt_list(monthly)
+    h4_dts = _build_dt_list(h4)
 
     start_req, end_req = _parse_period(period)
 
@@ -341,30 +366,25 @@ def run_backtest(asset: str, period: str) -> Dict:
             "notes": "No candles found in requested period.",
         }
 
-    def _slice_up_to(candles: List[Dict], dates: List[Optional[date]], cutoff: date) -> List[Dict]:
-        out: List[Dict] = []
-        for c, d in zip(candles, dates):
-            if d is None:
-                continue
-            if d <= cutoff:
-                out.append(c)
-        return out
-
     trades: List[Dict] = []
     open_trade: Optional[Dict] = None
+    pending_trade: Optional[Dict] = None
     
     min_trade_conf = 2 if SIGNAL_MODE == "standard" else 1
     cooldown_bars = 0
     last_trade_idx = -1
+    max_wait_bars = 5
 
     for idx in indices:
         c = daily[idx]
         d_i = daily_dates[idx]
-        if d_i is None:
+        cutoff_dt = daily_dts[idx]
+        if d_i is None or cutoff_dt is None:
             continue
 
         high = c["high"]
         low = c["low"]
+        close = c["close"]
 
         if open_trade is not None and idx > open_trade["entry_index"]:
             closed = _maybe_exit_trade(open_trade, high, low, d_i)
@@ -376,20 +396,62 @@ def run_backtest(asset: str, period: str) -> Dict:
 
         if open_trade is not None:
             continue
+        
+        if pending_trade is not None:
+            prev_close = daily[idx-1]["close"] if idx > 0 else None
+            e = pending_trade["entry"]
+            direction = pending_trade["direction"]
+            
+            if direction == "bullish":
+                is_limit = prev_close is not None and e <= prev_close
+                filled = (low <= e) if is_limit else (high >= e)
+            else:
+                is_limit = prev_close is not None and e >= prev_close
+                filled = (high >= e) if is_limit else (low <= e)
+            
+            if filled:
+                open_trade = {
+                    "asset": pending_trade["asset"],
+                    "direction": direction,
+                    "entry": e,
+                    "sl": pending_trade["sl"],
+                    "tp1": pending_trade["tp1"],
+                    "tp2": pending_trade["tp2"],
+                    "tp3": pending_trade["tp3"],
+                    "tp4": pending_trade.get("tp4"),
+                    "tp5": pending_trade.get("tp5"),
+                    "risk": pending_trade["risk"],
+                    "entry_date": d_i,
+                    "entry_index": idx,
+                    "confluence": pending_trade["confluence"],
+                }
+                
+                closed = _maybe_exit_trade(open_trade, high, low, d_i)
+                if closed is not None:
+                    trades.append(closed)
+                    open_trade = None
+                    last_trade_idx = idx
+                pending_trade = None
+                continue
+            
+            pending_trade["waited"] += 1
+            if pending_trade["waited"] > max_wait_bars:
+                pending_trade = None
+            continue
 
         if idx - last_trade_idx < cooldown_bars:
             continue
 
-        daily_slice = _slice_up_to(daily, daily_dates, d_i)
+        daily_slice = _slice_up_to_dt(daily, daily_dts, cutoff_dt)
         if len(daily_slice) < 30:
             continue
 
-        weekly_slice = _slice_up_to(weekly, weekly_dates, d_i)
+        weekly_slice = _slice_up_to_dt(weekly, weekly_dts, cutoff_dt)
         if not weekly_slice or len(weekly_slice) < 8:
             continue
 
-        monthly_slice = _slice_up_to(monthly, monthly_dates, d_i)
-        h4_slice = _slice_up_to(h4, h4_dates, d_i)
+        monthly_slice = _slice_up_to_dt(monthly, monthly_dts, cutoff_dt)
+        h4_slice = _slice_up_to_dt(h4, h4_dts, cutoff_dt)
 
         mn_trend = _infer_trend(monthly_slice) if monthly_slice else "mixed"
         wk_trend = _infer_trend(weekly_slice) if weekly_slice else "mixed"
@@ -436,7 +498,7 @@ def run_backtest(asset: str, period: str) -> Dict:
         if risk <= 0:
             continue
 
-        open_trade = {
+        pending_trade = {
             "asset": asset,
             "direction": direction,
             "entry": entry,
@@ -447,9 +509,10 @@ def run_backtest(asset: str, period: str) -> Dict:
             "tp4": tp4,
             "tp5": tp5,
             "risk": risk,
-            "entry_date": d_i,
-            "entry_index": idx,
+            "signal_date": d_i,
+            "signal_index": idx,
             "confluence": confluence_score,
+            "waited": 0,
         }
 
     from config import ACCOUNT_SIZE, RISK_PER_TRADE_PCT

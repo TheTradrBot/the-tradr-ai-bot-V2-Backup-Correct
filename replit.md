@@ -281,3 +281,85 @@ Set environment variable to switch modes:
 - `USE_OPTIMIZED_STRATEGY=false` - Use baseline parameters
 
 Optimized configuration is stored in `best_strategy_config.json`.
+
+## 24/7 Hosting Options
+
+### Option 1: Replit Deployments (Recommended)
+
+The simplest way to keep Blueprint Trader AI running 24/7:
+
+1. **Autoscale Deployment** - Click "Deploy" button in Replit
+   - Select "Autoscale" deployment type
+   - Set run command: `python main.py`
+   - Deploy to production
+   - Bot runs continuously with automatic restarts
+   - Cost: Based on compute usage (~$5-20/month)
+
+2. **Reserved VM Deployment** - For guaranteed uptime
+   - Select "Reserved VM" deployment
+   - Bot has dedicated resources
+   - Best for consistent trading hours
+   - Cost: Starting at $7/month
+
+**Important:** Your secrets (DISCORD_BOT_TOKEN, OANDA_API_KEY, OANDA_ACCOUNT_ID) are automatically available in production deployments.
+
+### Option 2: VPS Server (DigitalOcean, Vultr, etc.)
+
+For more control:
+
+1. Create a $5/month droplet (Ubuntu)
+2. Clone the repo: `git clone https://github.com/TheTradrBot/Blueprint-Tradr-AI-Bot`
+3. Install Python 3.11+ and uv
+4. Create `.env` file with your secrets
+5. Run with systemd or PM2 for auto-restart
+
+```bash
+# Install
+curl -LsSf https://astral.sh/uv/install.sh | sh
+cd Blueprint-Tradr-AI-Bot
+uv sync
+
+# Create systemd service
+sudo nano /etc/systemd/system/blueprint-bot.service
+```
+
+Service file:
+```ini
+[Unit]
+Description=Blueprint Trader AI Bot
+After=network.target
+
+[Service]
+Type=simple
+User=your-user
+WorkingDirectory=/path/to/Blueprint-Tradr-AI-Bot
+ExecStart=/path/to/.venv/bin/python main.py
+Restart=always
+EnvironmentFile=/path/to/.env
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable blueprint-bot
+sudo systemctl start blueprint-bot
+```
+
+### Option 3: Railway.app
+
+Alternative cloud hosting:
+
+1. Connect GitHub repo
+2. Add environment variables in Railway dashboard
+3. Deploy - runs automatically
+4. Cost: ~$5/month for always-on bots
+
+### Keeping Secrets Safe
+
+- **Never commit secrets to Git**
+- Use environment variables or secrets managers
+- On Replit: Use the Secrets tab
+- On VPS: Use `.env` files (add to .gitignore)
+- Rotate API keys periodically
+- Use OANDA practice API for testing
