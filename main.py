@@ -471,7 +471,7 @@ async def live(interaction: discord.Interaction):
                     mid = prices[sym]["mid"]
                     bid = prices[sym]["bid"]
                     ask = prices[sym]["ask"]
-                    lines.append(f"{sym}: `{mid:.5f}` (bid: {bid:.5f}, ask: {ask:.5f})")
+                    lines.append(f"{sym}: `{mid:.2f}` (bid: {bid:.2f}, ask: {ask:.2f})")
                 else:
                     lines.append(f"{sym}: N/A")
             lines.append("")
