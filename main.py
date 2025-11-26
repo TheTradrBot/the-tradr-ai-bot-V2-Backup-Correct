@@ -519,10 +519,21 @@ async def clearcache(interaction: discord.Interaction):
     await interaction.response.send_message("Cache cleared successfully.", ephemeral=True)
 
 
+@bot.tree.command(name="cleartrades", description="Clear all active trade tracking.")
+async def cleartrades(interaction: discord.Interaction):
+    count = len(ACTIVE_TRADES)
+    ACTIVE_TRADES.clear()
+    TRADE_PROGRESS.clear()
+    TRADE_SIZING.clear()
+    await interaction.response.send_message(f"Cleared {count} active trades.", ephemeral=True)
+
+
 @tasks.loop(hours=SCAN_INTERVAL_HOURS)
 async def autoscan_loop():
     await bot.wait_until_ready()
     print("Running 4H autoscan...")
+    
+    clear_cache()
 
     scan_channel = bot.get_channel(SCAN_CHANNEL_ID)
     trades_channel = bot.get_channel(TRADES_CHANNEL_ID)
