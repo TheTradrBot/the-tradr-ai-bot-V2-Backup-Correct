@@ -169,9 +169,12 @@ def _atr(candles: List[Dict], period: int = 14) -> float:
     
     tr_values = []
     for i in range(1, len(candles)):
-        high = candles[i]["high"]
-        low = candles[i]["low"]
-        prev_close = candles[i - 1]["close"]
+        high = candles[i].get("high")
+        low = candles[i].get("low")
+        prev_close = candles[i - 1].get("close")
+        
+        if high is None or low is None or prev_close is None:
+            continue
         
         tr = max(
             high - low,
