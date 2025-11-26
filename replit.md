@@ -130,17 +130,24 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Services
-- **Discord API** - Bot communication (py-cord library)
+- **Discord API** - Bot communication (discord.py library)
 - **OANDA v20 API** - Market data (practice endpoint)
 
 ### Environment Variables
 - `DISCORD_BOT_TOKEN` - Discord bot token
-- `OANDA_API_KEY` - OANDA API key
+- `OANDA_API_KEY` - OANDA API key (optional - enables autoscan)
 - `OANDA_ACCOUNT_ID` - OANDA account ID
 
 ### Python Dependencies
-- `py-cord>=2.6.1` - Discord bot framework
+- `discord-py>=2.6.4` - Discord bot framework (async)
+- `pandas>=2.3.3` - Data processing
 - `requests>=2.32.5` - HTTP client for OANDA API
+
+### Dependency Management
+- **Managed via**: `pyproject.toml` + `uv.lock`
+- **Important**: `uv.lock` is committed to Git - it ensures consistent dependency versions across all clones
+- When you clone from GitHub, run `uv sync` to install exact locked versions
+- Do NOT ignore `uv.lock` - it prevents package version mismatches
 
 ## Configuration
 

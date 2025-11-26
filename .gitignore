@@ -109,6 +109,11 @@ ipython_config.py
 #   https://pdm.fming.dev/#use-with-ide
 .pdm.toml
 
+# uv (Python package manager)
+#   IMPORTANT: DO NOT IGNORE uv.lock - it ensures reproducible installs
+#   When cloning from GitHub, uv will use uv.lock to install exact versions
+# DO NOT ADD uv.lock TO .gitignore
+
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
 
