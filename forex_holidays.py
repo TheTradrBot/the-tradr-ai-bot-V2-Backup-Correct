@@ -5,7 +5,7 @@ This module provides a list of major forex market holidays
 when trading should be avoided or skipped.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Set
 
 
@@ -46,10 +46,10 @@ def get_forex_holidays(year: int) -> Set[date]:
     }
     
     if year in easter_dates:
-        holidays.add(easter_dates[year])
+        easter_monday = easter_dates[year]
+        holidays.add(easter_monday)
         
-        good_friday = easter_dates[year]
-        good_friday = date(good_friday.year, good_friday.month, good_friday.day - 3)
+        good_friday = easter_monday - timedelta(days=3)
         holidays.add(good_friday)
     
     return holidays

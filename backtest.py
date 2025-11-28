@@ -22,6 +22,9 @@ from strategy_core import (
     get_default_params,
     Signal,
     StrategyParams,
+    _atr,
+    _find_pivots,
+    _find_structure_sl,
 )
 from forex_holidays import should_skip_trading
 from price_validation import validate_entry_price
@@ -281,6 +284,71 @@ def _signal_to_bar_date(signal: Signal, candles: List[Dict]) -> Optional[date]:
     return None
 
 
+def _compute_trade_levels_from_candle(
+    candles: List[Dict],
+    bar_index: int,
+    direction: str,
+    params: StrategyParams,
+) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float], Optional[float]]:
+    """
+    Compute entry, SL, and TP levels from candle data.
+    
+    This is used as a fallback when the signal doesn't have valid trade levels,
+    or to ensure we always have proper execution prices based on actual candle data.
+    
+    Args:
+        candles: Full list of candles
+        bar_index: Index of the current bar
+        direction: Trade direction ('bullish' or 'bearish')
+        params: Strategy parameters
+    
+    Returns:
+        Tuple of (entry, sl, tp1, tp2, tp3)
+    """
+    if bar_index < 20 or bar_index >= len(candles):
+        return None, None, None, None, None
+    
+    candle_slice = candles[:bar_index + 1]
+    current = candles[bar_index]
+    
+    atr = _atr(candle_slice, 14)
+    if atr <= 0:
+        return None, None, None, None, None
+    
+    entry = current["close"]
+    
+    structure_sl = _find_structure_sl(candle_slice, direction, lookback=params.structure_sl_lookback)
+    
+    if direction == "bullish":
+        if structure_sl is not None:
+            sl = min(entry - atr * params.atr_sl_multiplier, structure_sl - atr * 0.4)
+        else:
+            sl = entry - atr * params.atr_sl_multiplier
+        
+        risk = entry - sl
+        if risk <= 0:
+            return None, None, None, None, None
+        
+        tp1 = entry + risk * params.atr_tp1_multiplier
+        tp2 = entry + risk * params.atr_tp2_multiplier
+        tp3 = entry + risk * params.atr_tp3_multiplier
+    else:
+        if structure_sl is not None:
+            sl = max(entry + atr * params.atr_sl_multiplier, structure_sl + atr * 0.4)
+        else:
+            sl = entry + atr * params.atr_sl_multiplier
+        
+        risk = sl - entry
+        if risk <= 0:
+            return None, None, None, None, None
+        
+        tp1 = entry - risk * params.atr_tp1_multiplier
+        tp2 = entry - risk * params.atr_tp2_multiplier
+        tp3 = entry - risk * params.atr_tp3_multiplier
+    
+    return entry, sl, tp1, tp2, tp3
+
+
 def run_backtest(asset: str, period: str) -> Dict:
     """
     Walk-forward backtest of the Blueprint strategy.
@@ -361,6 +429,7 @@ def run_backtest(asset: str, period: str) -> Dict:
         }
 
     params = get_default_params()
+    params.require_confirmation_for_active = False
     
     signals = generate_signals(
         candles=daily,
@@ -371,7 +440,7 @@ def run_backtest(asset: str, period: str) -> Dict:
         h4_candles=h4 if h4 else None,
     )
 
-    signal_by_bar = {s.bar_index: s for s in signals}
+    signal_by_bar = {s.bar_index: s for s in signals if s.is_active or s.is_watching}
 
     trades: List[Dict] = []
     open_trade: Optional[Dict] = None
@@ -412,18 +481,26 @@ def run_backtest(asset: str, period: str) -> Dict:
         if signal is None:
             continue
         
-        if not signal.is_active:
-            continue
-
+        direction = signal.direction
+        
         entry = signal.entry
         sl = signal.stop_loss
         tp1 = signal.tp1
         tp2 = signal.tp2
         tp3 = signal.tp3
-        direction = signal.direction
-
+        
         if entry is None or sl is None or tp1 is None:
-            continue
+            fallback_entry, fallback_sl, fallback_tp1, fallback_tp2, fallback_tp3 = \
+                _compute_trade_levels_from_candle(daily, idx, direction, params)
+            
+            if fallback_entry is None or fallback_sl is None or fallback_tp1 is None:
+                continue
+            
+            entry = entry if entry is not None else fallback_entry
+            sl = sl if sl is not None else fallback_sl
+            tp1 = tp1 if tp1 is not None else fallback_tp1
+            tp2 = tp2 if tp2 is not None else fallback_tp2
+            tp3 = tp3 if tp3 is not None else fallback_tp3
 
         is_valid_entry, entry_msg = validate_entry_price(
             entry_price=entry,
