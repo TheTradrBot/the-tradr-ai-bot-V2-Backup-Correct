@@ -1,0 +1,1405 @@
+Here’s the full updated prompt you can paste into Replit (including the new v3 strategy spec requirement):
+
+For this project, your ONLY goal is to optimize the strategy and the backtest engine until the performance metrics match the targets below.
+
+The backtest MUST be a VERIFIED mirror of the live strategy and act like a machine-learning optimizer:
+- It repeatedly runs this loop:
+  1) Use the current strategy implementation to run backtests over the requested assets/periods.
+  2) Analyze the backtest metrics (trades, win rate, net return, drawdown, entry/exit quality, price alignment).
+  3) Adjust ONLY parameters, thresholds and configuration (NOT the core conceptual logic of the strategy).
+  4) Re-run the backtests.
+  5) Keep iterating until the performance constraints below are satisfied for all assets and years tested.
+- Think of it as “parameter search” or “machine-learning style” optimization driven by backtest feedback, but ALWAYS using the same strategy logic as the live bot.
+
+1. The backtest must use the EXACT same strategy logic as the live bot
+   - Same confluence rules, HTF bias, S/R, supply/demand, Fibonacci, liquidity, structure, 4H confirmation, R/R, entry/exit logic, stop/TP rules, etc.
+   - No separate “backtest-only” shortcuts or simplified formulas.
+   - The purpose of the backtest is to be a VERIFIED resource for future trades, so whatever the backtest uses must be identical to what the live strategy will use.
+
+2. The backtest must be DIRECTLY LINKED to the strategy implementation
+   - There must be a single source of truth for the strategy logic (e.g. the functions in strategy.py).
+   - The backtest must call the same core functions that the live bot uses (or a very thin adapter that just feeds it historical data instead of live data).
+   - When the strategy changes (parameters, filters, logic) the backtest must automatically use the updated version WITHOUT code duplication or manual syncing.
+
+3. The backtest must use CORRECT historical price data
+   - Prices (like EUR_USD) must match the real historical OHLC data from the configured data source (e.g. OANDA or another broker feed).
+   - Candle timestamps, timezones and sessions must be handled correctly so that:
+     - Confluence checks (daily vs 4H) are aligned.
+     - Backtest entries/exits match the real bars that actually traded.
+   - No artificial, rounded or purely Fibonacci-derived “pseudo prices” are allowed as execution prices. Fibonacci is allowed for LEVEL SELECTION (where to aim), but the actual execution prices must be consistent with the real OHLC data of that candle (e.g. entry is at a realistic level within that bar’s high/low).
+
+4. Price validation against a ground-truth EURUSD CSV
+   - Use a reference CSV for EUR/USD to validate that the data feed and backtest entries are correct.
+   - Example reference file name: `eurusd_corrected_prices_2025.csv`.
+   - This CSV contains accurate daily EUR/USD spot/close prices; for example:
+
+     Date,Price
+     2025-01-01,1.0351
+     2025-01-02,1.0266
+     2025-01-03,1.0312
+     2025-01-06,1.0383
+     2025-01-07,1.0344
+     2025-01-08,1.0317
+     2025-01-09,1.0296
+     2025-01-10,1.0262
+     2025-01-13,1.027
+     2025-01-14,1.0304
+     2025-01-15,1.0295
+     2025-01-16,1.0301
+     2025-01-17,1.0303
+     2025-01-20,1.0423
+     2025-01-21,1.0412
+     2025-01-22,1.0408
+     2025-01-23,1.0415
+     2025-01-24,1.0503
+     2025-01-27,1.0444
+     2025-01-28,1.0429
+     2025-01-29,1.0427
+     2025-01-30,1.0397
+     2025-01-31,1.037
+     2025-02-03,1.0326
+     2025-02-04,1.0372
+     2025-02-05,1.0403
+     2025-02-06,1.0385
+     2025-02-07,1.0332
+     2025-02-10,1.0301
+     2025-02-11,1.0365
+     2025-02-12,1.0389
+     2025-02-13,1.046
+     2025-02-14,1.0497
+     2025-02-17,1.0485
+     2025-02-18,1.0449
+     2025-02-19,1.0421
+     2025-02-20,1.0502
+     2025-02-21,1.0465
+     2025-02-24,1.0461
+     2025-02-25,1.0521
+     2025-02-26,1.049
+     2025-02-27,1.0394
+     2025-02-28,1.0378
+     2025-03-03,1.0491
+     2025-03-04,1.0624
+     2025-03-05,1.0794
+     2025-03-06,1.079
+     2025-03-07,1.0836
+     2025-03-10,1.0842
+     2025-03-11,1.0915
+     2025-03-12,1.0884
+     2025-03-13,1.0853
+     2025-03-14,1.0922
+     2025-03-17,1.092
+     2025-03-18,1.0939
+     2025-03-19,1.091
+     2025-03-20,1.0857
+     2025-03-21,1.0876
+     2025-03-24,1.0802
+     2025-03-25,1.0786
+     2025-03-26,1.0743
+     2025-03-27,1.0802
+     2025-03-28,1.0876
+     2025-03-31,1.0819
+     2025-04-01,1.0798
+     2025-04-02,1.0837
+     2025-04-03,1.1065
+     2025-04-04,1.096
+     2025-04-07,1.0917
+     2025-04-08,1.0969
+     2025-04-09,1.0956
+     2025-04-10,1.1219
+     2025-04-11,1.1351
+     2025-04-14,1.1353
+     2025-04-15,1.1294
+     2025-04-16,1.1398
+     2025-04-17,1.1372
+     2025-04-18,1.1372
+     2025-04-21,1.152
+     2025-04-22,1.134
+     2025-04-23,1.1335
+     2025-04-24,1.1387
+     2025-04-25,1.1405
+     2025-04-28,1.1413
+     2025-04-29,1.1395
+     2025-04-30,1.1327
+
+   - You must implement a validation step that, at least for EUR_USD, checks that:
+     - The historical data feed used in the backtest produces daily closes that are within a small tolerance of these reference values.
+     - Entry prices for trades on those dates are realistic relative to that day’s OHLC.
+   - If a significant mismatch appears (e.g. a trade entry far away from the real market price for that date), you must treat it as a BUG and adjust the data feed, mapping, or execution logic until the backtest and `/output` CSV prices align with realistic market prices.
+
+5. TP and SL prices and dates must be consistent with real data
+   - TP levels may be calculated using Fibonacci extensions or the strategy’s framework, but:
+     - The actual execution of TP/SL in the backtest must happen only if the bar’s high/low logically reaches those levels.
+     - The exit price and exit date in the trade log must be consistent with the candle(s) that touch or cross those levels.
+   - No fictional fills: if a level is not touched in the data, the TP/SL may NOT be assumed to be hit.
+
+6. The backtest must NOT trade on forex holidays
+   - Do not open new trades on days when the FX market is closed or practically inactive due to major FX holidays.
+   - If a setup appears on such a day, skip placing new trades.
+
+7. Yearly performance goals (per asset, per year)
+   After all the correctness criteria above are satisfied, you must tune ONLY parameters and configuration (not the core strategy concept) so that, for each configured asset on a yearly basis, you achieve:
+
+   - Total trades: at least 60 trades per year (≥ 60)
+   - Win rate: between 70% and 100% per year (70%–100%)
+   - Net return: between +50% and +400% per year (+50%–+400%)
+
+   For EUR_USD (Jan 2024 – Dec 2024) and for every other configured asset/year:
+   - You must achieve ≥ 60 trades per year per asset.
+   - You must achieve a yearly win rate between 70% and 100% per asset.
+   - You must achieve a yearly net return between +50% and +400% per asset.
+
+   If any backtest for any asset-year does NOT satisfy ALL of these constraints at the same time, you must keep adjusting parameters (confluence thresholds, filters, minimum RR, TP scaling, etc.) and re-running the backtests in a loop, just like a machine-learning optimizer, until:
+   - Total trades ≥ 60,
+   - Win rate 70%–100%,
+   - Net return +50%–+400%,
+   are all satisfied at the same time for that asset-year.
+
+8. `/backtest` command remains the core analysis tool
+   - `/backtest` must continue to run the backtest using the unified strategy logic and the corrected historical data.
+   - Its numerical output (trades, win rate, net return, drawdown, etc.) must reflect the optimized parameters and verified data described above.
+
+9. Implement a new `/output` command for CSV export
+   - `/output` must behave like `/backtest` in terms of asset and date range selection, but it MUST be based ONLY on the shared backtest engine (which itself calls the unified strategy logic).
+   - When `/output` is executed, it must:
+     - Run (or reuse) the backtest for the requested asset and period.
+     - Generate a CSV file containing ALL trades from that backtest run.
+   - The CSV must include at minimum:
+     - Asset
+     - Direction (long/short)
+     - Entry date & time
+     - Entry price
+     - Stop-loss price
+     - TP price(s) that were hit
+     - Exit date & time
+     - Exit price
+     - Result in R
+     - Result in % (relative to risk)
+   - `/output` must send that CSV file back so it can be downloaded.
+   - The prices and dates in this CSV must match:
+     - The underlying historical data feed.
+     - The validation against the EURUSD reference CSV (for EUR_USD).
+     - The logic used by `/backtest` (no discrepancies allowed).
+
+10. Strategy spec file: update to v3 and base EVERYTHING on it
+   - There is a strategy specification file in the project (e.g. `strategy_spec.md`).
+   - You must REPLACE its entire contents with the following spec (v3), exactly as written, and then ensure that:
+     - The strategy implementation (e.g. in `strategy.py`),
+     - The backtest logic,
+     - The `/backtest` and `/output` commands,
+     are all fully aligned with, and optimized for, this specification.
+
+   Replace `strategy_spec.md` with this content:
+
+   # Blueprint HTF Confluence Strategy – Spec (v3)
+
+   ---
+
+   ## 1. High-level overview
+
+   ### 1.1 Type of trader & holding period
+
+   - Trades are based on **Daily frameworks** with:
+     - **Daily** as the **main framework/setup chart**
+     - **4H** as the **execution/entry chart**
+     - **Weekly & Monthly** for macro confluence
+   - Typical holding time: **several days up to ~1–2 weeks**
+   - The strategy is **not** for:
+     - High-frequency scalping
+     - Long-term multi-month investing
+   - Optional filter: avoid **new entries on Friday**.
+
+   ---
+
+   ### 1.2 Markets
+
+   The framework is generic and can be applied to:
+
+   - **FX**  
+     - All main Oanda FX pairs (majors and key minors), excluding exotics
+   - **Commodities**  
+     - XAUUSD (Gold), XAGUSD (Silver), major energies (e.g. Crude, Brent)
+   - **Indices**  
+     - e.g. SPX500, NAS100, US30 (depending on broker)
+   - **Crypto**  
+     - Liquid majors only if spreads/feeds are acceptable (e.g. BTC, ETH, SOL)
+
+   Instrument requirements:
+
+   - Reasonably **clean technical behaviour**
+   - Respect for **HTF S/R**, **structure** and **impulsive legs**
+
+   ---
+
+   ### 1.3 Core tools & concepts
+
+   The strategy is built from these core components:
+
+   - **Support & Resistance (S/R)**
+     - Horizontal levels/zones on **Monthly**, **Weekly**, and **Daily**
+     - Used to anchor bias, define locations for setups and plan take profits
+
+   - **Market Structure**
+     - HH / HL vs LH / LL
+     - **Break of Structure (BOS)** and **Change of Character (CHOCH)**
+     - Emphasis on **breakaway candles** for valid BOS
+
+   - **Fibonacci on Daily impulses**
+     - Drawn **only on Daily impulses** that form the structural legs of the framework
+     - Always **body → wick**
+       - Up impulse: low body → high wick
+       - Down impulse: high body → low wick
+     - Retracements:
+       - **0.618, 0.66, 0.796** (main entry zone)
+     - Extensions for TPs:
+       - **−0.25, −0.68, −1.00, −1.42, −2.00**
+
+   - **Structural Frameworks on the Daily chart (framework = Daily only)**
+     - **Head & Shoulders (H&S)** – bearish reversal
+     - **Inverse Head & Shoulders** – bullish reversal
+     - **Bullish N pattern** – bullish continuation
+     - **Bearish V pattern** – bearish continuation
+     - The **impulses for Fibonacci** always come from:
+       - **Daily leg-1 impulse** for N/V continuation
+       - **Daily impulse that breaks the neckline (BOS)** for H&S / inverse H&S
+
+   - **Supply & Demand / Order Blocks**
+     - Last opposing candle/cluster before a strong impulsive move that breaks structure
+     - Serve as refined entry zones inside HTF S/R and Daily fib zones
+
+   - **Liquidity & Magnetic Price Levels**
+     - Equal highs/lows
+     - Previous day/week/month highs and lows
+     - Key swing highs/lows at HTF
+     - These are **magnets and confluence**, **not hard entry requirements**
+
+   - **Top-down HTF Confluence**
+     - Monthly → Weekly → Daily to define context and bias
+     - 4H used **only for entry confirmation** with a strict **3-candle rule**
+
+   > The system is a **confluence-based HTF swing framework**:  
+   > trades are allowed only when **HTF bias, structure, S/R, Daily zones and Fibonacci** align,  
+   > **optionally supported by liquidity confluence**, and **confirmed on 4H with the 3-candle rule**.
+
+   ---
+
+   ## 2. Timeframes
+
+   ### 2.1 Timeframe stack
+
+   - **Monthly (MN)**
+     - Draw major **S/R zones**
+     - Mark very large swing highs/lows and major equal highs/lows
+     - Identify **macro trend** and multi-year liquidity magnets
+
+   - **Weekly (W1) – Primary bias timeframe**
+     - Draw **weekly S/R** in alignment with Monthly
+     - Identify **weekly structural frameworks**:
+       - H&S / inverse H&S
+       - Bullish N / Bearish V
+     - Determine the **primary directional bias** (bullish, bearish, neutral)
+
+   - **Daily (D1) – Framework & setup timeframe (always)**
+     - Daily is **always** the **framework chart**
+     - Tasks on Daily:
+       - Classify current leg as **impulse or correction** within the Weekly swing
+       - Map **Daily supply/demand (OBs)** and local S/R
+       - Identify **Daily structural frameworks** (H&S, inverse H&S, Bullish N, Bearish V)
+       - Select **Daily impulses for Fibonacci**:
+         - Leg-1 impulse in N/V
+         - Neckline-breaking impulse in H&S / inverse H&S
+     - Daily produces the **entry zones** used later on 4H
+
+   - **4H (H4) – Execution timeframe**
+     - **Entry confirmation ONLY**
+     - Responsibilities:
+       - Monitor how price behaves inside the **Daily entry zone**
+       - Apply the **3-candle close rule**:
+         - If 3 consecutive 4H candles close inside the Daily zone:
+           - For longs: closes hold **inside/above** the Daily demand + fib zone
+           - For shorts: closes hold **inside/below** the Daily supply + fib zone
+         - **Enter on the close of the 3rd 4H candle**
+       - Refine stop placement if needed
+
+   ---
+
+   ### 2.2 HTF bias definition
+
+   Bias is defined top-down:
+
+   1. **Monthly macro context**
+      - Evaluate last 3–5 swings:
+        - Sequence of HH/HL → macro uptrend
+        - Sequence of LH/LL → macro downtrend
+      - Check whether price is:
+        - Approaching or rejecting **major Monthly S/R or OB**
+        - Close to **macro equal highs/lows** or major liquidity clusters
+
+   2. **Weekly primary bias**
+      - Weekly is the **main bias timeframe**
+      - Identify:
+        - Current trend (HH/HL or LH/LL)
+        - Latest **BOS** with a clear **breakaway candle**
+        - Any forming/formed **H&S / inverse H&S** on Weekly
+      - Rules:
+        - **Bullish bias** if:
+          - Clear HH/HL structure AND
+          - Last BOS is up with a strong breakaway candle AND
+          - Price is above the last key higher low
+        - **Bearish bias** if:
+          - Clear LH/LL structure AND
+          - Last BOS is down with a strong breakaway candle AND
+          - Price is below the last key lower high
+        - **Neutral/cautious** if:
+          - Weekly is choppy around key HTF S/R, or
+          - Recent BOS is unclear or quickly reversed
+
+   3. **Daily execution bias**
+      - Within the Weekly bias:
+        - In a **Weekly uptrend**:
+          - Daily impulse phase: wait for pullback before longing
+          - Daily correction phase: look for **longs** from Daily demand + HTF S/R + fib
+        - In a **Weekly downtrend**:
+          - Mirror logic for shorts from Daily supply + HTF S/R + fib
+      - Daily CHOCH against Weekly trend:
+        - May indicate a deeper pullback to HTF demand/supply
+        - Or early stage of Weekly reversal **if** at major HTF level + clear framework
+
+   ---
+
+   ### 2.3 When not to trade
+
+   No trades when:
+
+   - **Conflicting bias**
+     - Weekly up, Daily strongly down, and price **not** at a major HTF level/framework
+     - Weekly down, Daily strongly up, and price **not** at HTF level/framework
+   - **Mid-range chop**
+     - Price stuck in the middle of a broad Monthly/Weekly range with:
+       - No nearby HTF S/R
+       - No clean supply/demand zone
+       - No obvious liquidity magnet above/below
+   - **Exhausted trend**
+     - Price already hit major **extension targets** (e.g. −1.00, −1.42, −2.00)
+     - No fresh, clean pullback zones available
+
+   ---
+
+   ## 3. Support & Resistance (S/R)
+
+   ### 3.1 Definitions
+
+   - **Support**  
+     A zone where price previously found buying interest and bounced.
+   - **Resistance**  
+     A zone where price previously found selling interest and rejected.
+
+   Zones, not single lines:
+
+   - Define **bands** around key highs/lows rather than razor-thin lines.
+   - Allow for **wicks/spikes** beyond the zone.
+
+   ---
+
+   ### 3.2 S/R by timeframe
+
+   - **Monthly**
+     - Major reversal points over years
+     - “Macro magnets” for price
+
+   - **Weekly**
+     - Swing points inside Monthly structure
+     - Core S/R used for trading bias
+
+   - **Daily**
+     - Refines Weekly levels
+     - Aligns with Daily OBs and fib zones to define entry regions
+
+   ---
+
+   ### 3.3 Interaction with other components
+
+   - S/R + **Daily OB** + **Daily fib golden pocket** = primary entry zone
+   - S/R often lines up with **major liquidity pools** (equal highs/lows, previous highs/lows)
+   - Structural frameworks (H&S, inverse H&S, N/V) are only traded **if they form at/near HTF S/R**
+
+   ---
+
+   ## 4. Market structure
+
+   ### 4.1 Basic elements
+
+   - **Higher High (HH)** – new high above previous swing high
+   - **Higher Low (HL)** – low above previous swing low
+   - **Lower High (LH)** – lower than previous swing high
+   - **Lower Low (LL)** – lower than previous swing low
+
+   - **Break of Structure (BOS)**
+     - Candle body close that decisively breaks a prior important swing high/low
+     - Ideally a **breakaway candle** (large body, strong close beyond level)
+
+   - **Change of Character (CHOCH)**
+     - First BOS **against** the prevailing trend:
+       - Uptrend: break below last key HL
+       - Downtrend: break above last key LH
+
+   ---
+
+   ### 4.2 Structure by timeframe
+
+   - **Daily**
+     - Main timeframe to track swing structure for trades
+     - Identify:
+       - Last key HL or LH
+       - Recent BOS/CHOCH
+       - Whether current leg is **impulse or correction**
+
+   - **4H**
+     - Used to refine Daily structure
+     - Not used to define the main frameworks
+     - 4H structure helps with entry timing but must **obey** Daily/Weekly context
+
+   ---
+
+   ### 4.3 Trend & bias on Daily
+
+   - **Uptrend**
+     - At least two HH/HL sequences
+     - No recent strong BOS down
+     - Key HL still intact
+
+   - **Downtrend**
+     - At least two LH/LL sequences
+     - No recent strong BOS up
+     - Key LH still intact
+
+   - **Range/transition**
+     - Equal highs/lows
+     - Alternating BOS in both directions
+     - Often coincides with forming H&S / inverse H&S or accumulation/distribution
+
+   ---
+
+   ### 4.4 Structure with S/R, supply/demand, liquidity
+
+   - At **HTF support** (Monthly/Weekly S/R + demand):
+     - Look for signs of downtrend losing power:
+       - Failure to make new LL near support
+       - CHOCH or BOS up on Daily
+       - Inverse H&S or Bullish N forming
+       - Optional: sweeps of equal lows / previous lows then strong rejection
+
+   - At **HTF resistance** (Monthly/Weekly S/R + supply):
+     - Look for uptrend losing power:
+       - Failure to make new HH
+       - CHOCH or BOS down on Daily
+       - H&S or Bearish V forming
+       - Optional: sweeps of equal highs / previous highs then rejection
+
+   - Structural frameworks on **Daily only**:
+     - BOS that completes a framework (e.g. break of neckline) is a higher-probability signal
+
+   ---
+
+   ## 5. Supply & Demand zones
+
+   ### 5.1 Definitions
+
+   - **Demand zone (bullish order block)**
+     - Last **bearish candle/cluster** before a strong impulsive move up that:
+       - Breaks structure (BOS) or
+       - Takes significant liquidity
+     - Zone boundaries:
+       - From open of last bearish candle down to its lowest wick
+       - Optionally include small neighbouring candles of same base
+
+   - **Supply zone (bearish order block)**
+     - Last **bullish candle/cluster** before a strong impulsive move down that:
+       - Breaks structure or
+       - Sweeps equal highs
+     - Zone boundaries:
+       - From open of last bullish candle up to its highest wick
+       - Optionally include adjacent small candles
+
+   ---
+
+   ### 5.2 Valid zone criteria
+
+   A zone is **valid** if:
+
+   1. Move away from zone is clearly **impulsive**:
+      - Large body candles
+      - Minimal overlap
+      - Ideally a **breakaway candle**
+
+   2. The move away causes:
+      - A **BOS** on that timeframe or higher, or
+      - A clear liquidity grab (equal highs/lows, prior day/week high/low)
+
+   3. Zone is located:
+      - Near **HTF S/R**, and/or
+      - Around a **Fibonacci retracement** of a key Daily swing
+
+   ---
+
+   ### 5.3 Fresh vs used zones
+
+   - **Fresh zone**
+     - Price has not yet returned since the impulsive move
+     - Highest-probability reaction
+
+   - **First retest**
+     - First revisit after the impulsive move
+     - Often where we plan entries
+
+   - **Used/degraded zone**
+     - Zone has been tapped multiple times
+     - Each touch reduces reliability
+
+   ---
+
+   ### 5.4 Timeframe for zones
+
+   - Primary zones for entries are on **Daily**
+   - Weekly/MN zones provide **context**, not exact entry
+   - 4H can refine **sub-zones** inside the Daily OB if needed, but the main zone is still derived from D1
+
+   ---
+
+   ### 5.5 How zones appear in different contexts
+
+   - In trend:
+     - Uptrend:
+       - Buy from **demand** at or near support
+     - Downtrend:
+       - Sell from **supply** at or near resistance
+
+   - Around BOS/CHOCH:
+     - After a BOS, the **origin OB** often becomes the pullback entry zone
+     - After CHOCH at HTF level, a new OB marks the early stage of a new trend
+
+   ---
+
+   ### 5.6 Use in entries, stops, targets
+
+   - **Entries (Daily zone + 4H confirmation)**
+     - Look to enter **inside the Daily demand/supply zone**, ideally where:
+       - Zone overlaps with the **Daily fib golden pocket (0.618–0.796)** of the correct Daily impulse
+       - Price then prints the **4H 3-candle close pattern inside the zone**
+
+   - **Stops**
+     - Longs:
+       - Below the lowest wick of the Daily demand zone
+     - Shorts:
+       - Above the highest wick of the Daily supply zone
+     - Optionally a little beyond obvious local liquidity (equal highs/lows) to avoid easy stop hunts
+
+   - **Targets (Daily fib extensions + structure)**
+     - Long from demand:
+       - Next HTF supply or prior structural high
+     - Short from supply:
+       - Next HTF demand or prior structural low
+     - Use Daily fib **extension levels** as structured TP bands:
+       - −0.25 → −0.68 → −1.00 → −1.42 → −2.00
+
+   ---
+
+   ## 6. Structural Frameworks (Daily only)
+
+   From the Structural Frameworks lesson, we use these main Daily patterns:
+
+   ### 6.1 Head & Shoulders (H&S) – bearish reversal
+
+   **Structure & formation**
+
+   - Occurs after an uptrend
+   - Components:
+     - Left shoulder: swing high
+     - Head: higher swing high
+     - Right shoulder: swing high that fails to make a new HH
+     - Neckline: support connecting the lows between shoulders/head
+
+   **Confirmation**
+
+   - Break of neckline with a **bearish breakaway candle** → Daily BOS down
+   - Ideally at or beyond HTF resistance/supply
+
+   **Entries**
+
+   - We trade the **pullback after the neckline BOS**
+   - Use the **Daily impulse that breaks the neckline down** as the **fib anchor**:
+     - Body → wick on that impulse
+   - Entry zone:
+     - Neckline retest
+     - Overlapping **Daily supply / OB**
+     - Overlapping **0.618–0.796 retracement** of the neckline-break impulse
+
+   **Stops**
+
+   - Above the right shoulder high (or head for conservative version)
+   - If formed at major HTF level, stops may sit above external liquidity highs
+
+   **Targets**
+
+   - First target: prior swing low or demand zone
+   - Next targets via fib extensions of the neckline-break impulse:
+     - −0.25 → −0.68 → −1.00 → −1.42 → −2.00 (trend permitting)
+
+   ---
+
+   ### 6.2 Inverse Head & Shoulders – bullish reversal
+
+   Mirror logic of H&S.
+
+   **Structure**
+
+   - Occurs after a downtrend at HTF support/demand
+   - Left shoulder low → deeper head low → right shoulder higher low
+
+   **Confirmation**
+
+   - Break above neckline with a **bullish breakaway candle** → Daily BOS up
+
+   **Entries**
+
+   - We trade the **pullback after the neckline BOS**
+   - Use the **Daily impulse that breaks the neckline up** as the fib anchor:
+     - Low body → high wick
+   - Entry zone:
+     - Neckline retest
+     - Overlapping **Daily demand / OB**
+     - Overlapping **0.618–0.796 retracement** of the neckline-break impulse
+
+   **Stops**
+
+   - Below the right shoulder low or head low (conservative)
+
+   **Targets**
+
+   - Prior swing highs and opposing supply zones
+   - Fib extensions:
+     - −0.25, −0.68, −1.00, −1.42, −2.00 in strong reversals
+
+   ---
+
+   ### 6.3 Bullish N pattern – continuation
+
+   **Structure**
+
+   - Three legs forming an “N”:
+     1. Leg 1 – impulse up with BOS
+     2. Leg 2 – controlled correction down, respecting HL structure
+     3. Leg 3 – impulse up continuation to new HH
+
+   **Formation rules**
+
+   - Leg 1 originates from **Daily demand + HTF support** or from an earlier bullish reversal
+   - Leg 2 retraces into the **golden pocket (0.618–0.796)** of leg 1
+     - Ideally taps or slightly overshoots the origin OB
+   - Leg 3 launches with a bullish breakaway candle
+
+   **Fib impulse selection**
+
+   - For Bullish N, the **Daily leg-1 impulse** is used for fib:
+     - Low body → high wick of leg 1
+
+   **Entry & targets**
+
+   - Entry during leg 2:
+     - In Daily demand + fib 0.618–0.796 zone
+     - Confirmed by **4H 3-candle close inside the zone**
+   - Stop:
+     - Below swing low of leg 2 / base of demand
+   - Targets:
+     - New HH beyond leg-1 high
+     - Fib extensions of leg-1 impulse:
+       - −0.25 → −0.68 → −1.00 → −1.42 → −2.00
+
+   ---
+
+   ### 6.4 Bearish V pattern – continuation
+
+   Mirror of Bullish N but in downtrend:
+
+   **Structure**
+
+   1. Leg 1 – impulse down with BOS
+   2. Leg 2 – corrective move up into supply
+   3. Leg 3 – continuation down to new LL
+
+   **Fib impulse selection**
+
+   - For Bearish V, the **Daily leg-1 impulse down** is used for fib:
+     - High body → low wick of leg 1
+
+   **Entry & targets**
+
+   - Entry during leg 2:
+     - In Daily supply overlapping 0.618–0.796 retracement of leg 1
+     - Confirmed by **4H 3-candle close inside the zone**
+   - Stop:
+     - Above swing high of leg 2 / supply high
+   - Targets:
+     - New LL beyond leg-1 low
+     - Fib extensions of leg-1 impulse:
+       - −0.25 → −0.68 → −1.00 → −1.42 → −2.00
+
+   ---
+
+   ### 6.5 Interaction with S/R, zones, fib
+
+   Structural frameworks must align with:
+
+   - **S/R**
+     - Patterns away from HTF levels are ignored
+     - Valid frameworks sit at/near Monthly/Weekly S/R
+
+   - **Supply & Demand**
+     - Shoulders or leg-2 retracements tend to end in OBs
+     - Neckline and bases usually coincide with OBs
+
+   - **Fibonacci**
+     - Leg-2 retracements into the golden pocket are prime entry zones
+     - Extensions define systematic TP ladders
+
+   - **HTF bias**
+     - Reversal frameworks (H&S / inverse H&S) traded only at major HTF S/R
+     - N/V patterns traded with the prevailing HTF trend
+
+   ---
+
+   ## 7. Fibonacci rules (Daily impulses)
+
+   ### 7.1 Swing selection & timeframe
+
+   - Fibs are drawn **only on Daily impulses**
+   - Always **body → wick**:
+     - Up impulse: swing low body → swing high wick
+     - Down impulse: swing high body → swing low wick
+
+   - Use Fibs **only on meaningful swings**:
+     - Swings with clear breakaway candles and BOS
+     - Swings that form:
+       - Leg-1 of N or V
+       - Neckline-breaking impulse in H&S / inverse H&S
+
+   ---
+
+   ### 7.2 Pattern-specific impulse rules
+
+   - **Bullish N**
+     - Fib drawn on **Daily leg-1 impulse up**
+   - **Bearish V**
+     - Fib drawn on **Daily leg-1 impulse down**
+   - **Inverse H&S**
+     - Fib drawn on the **Daily impulse that breaks the neckline up** (BOS)
+   - **H&S**
+     - Fib drawn on the **Daily impulse that breaks the neckline down** (BOS)
+
+   ---
+
+   ### 7.3 Key Fibonacci levels
+
+   Configured levels:
+
+   - **Retracements**:
+     - **0.618** – start of golden pocket
+     - **0.66** – refined golden area
+     - **0.796 (~0.786)** – deep retracement
+   - **Extensions** (for TPs):
+     - **−0.25**
+     - **−0.68**
+     - **−1.00**
+     - **−1.42**
+     - **−2.00**
+
+   ---
+
+   ### 7.4 Confluence usage
+
+   Fibs are **never traded in isolation**; they must align with:
+
+   - **S/R**
+     - Golden pocket near Monthly/Weekly S/R = strong area of interest
+
+   - **Supply & Demand**
+     - Golden pocket overlapping fresh Daily OB → prime entry zone
+
+   - **Structural Frameworks**
+     - Leg-2 retracement of N/V or shoulders area of H&S often terminates in the golden pocket
+
+   - **HTF Bias**
+     - Only trade golden pocket pullbacks **in direction of Weekly/Daily bias**:
+       - Uptrend → buy retracements in golden pocket at demand
+       - Downtrend → sell retracements in golden pocket at supply
+
+   ---
+
+   ### 7.5 Example rule (bullish)
+
+   - Weekly & Daily bullish
+   - Identify a Daily impulse that caused BOS up
+   - Draw fib from body of last key HL to wick of new HH (leg-1 impulse)
+   - Wait for price to:
+     - Retrace into 0.618–0.796
+     - Tap Daily demand/OB inside this zone
+     - Print **3 consecutive 4H closes inside the zone**
+   - Enter long at close of 3rd 4H candle
+   - Stop below swing low / OB wick
+   - TPs at −0.25, −0.68, −1.00, −1.42, −2.00 as trend allows
+
+   ---
+
+   ## 8. Liquidity: magnetic price levels
+
+   ### 8.1 Definition
+
+   “Magnetic price levels” are price areas that attract price because they contain **concentrated liquidity**, such as:
+
+   - Swing highs and lows
+   - Equal highs / equal lows (relative or perfect)
+   - Previous month/week/day highs and lows
+   - Major S/R levels
+   - Edges of large gaps / fair value gaps / large OBs
+
+   Price often **travels towards these zones**, fills orders, then either reverses or continues with acceleration.
+
+   ---
+
+   ### 8.2 Why they matter
+
+   - Market participants need liquidity to fill large orders
+   - Stops above highs / below lows cluster into **liquidity pools**
+   - When price nears a pool, it often:
+     - Spikes through (liquidity grab)
+     - Then:
+       - Reverses (sweep + reversal), or
+       - Continues if HTF trend dominates
+
+   ---
+
+   ### 8.3 Identification rules (HTF)
+
+   On Monthly/Weekly/Daily, mark:
+
+   - Major swing highs/lows
+   - Equal highs/lows (two or more similar highs/lows within a tolerance)
+   - Previous period highs/lows:
+     - Previous month high/low
+     - Previous week high/low
+     - Previous day high/low
+
+   ---
+
+   ### 8.4 Internal vs external liquidity
+
+   - **External liquidity**
+     - Liquidity beyond the current main range
+     - e.g. the swing that defines current trend
+     - Taking external liquidity often precedes major reversals
+
+   - **Internal liquidity**
+     - Liquidity inside the current range:
+       - Intra-range equal highs/lows
+       - Smaller swing points between main extremes
+     - Often used to fuel continuations
+
+   Rules of thumb:
+
+   - Trend trades:
+     - Often clear **internal liquidity** (e.g. local equal lows) then continue
+   - Reversal trades:
+     - Often clear **external liquidity** (major swing high/low) at HTF S/R
+
+   ---
+
+   ### 8.5 Interaction with other components
+
+   - S/R
+     - Liquidity clusters often sit around/just beyond S/R
+     - S/R + equal highs/lows = strong magnet
+
+   - Supply & Demand
+     - Demand below equal lows / supply above equal highs = “sweep into zone” situations
+
+   > Liquidity is informational and a **bonus confluence**,  
+   > but **not a mandatory condition** for taking trades under the current rule set.
+
+   ---
+
+   ## 9. Liquidity flows
+
+   ### 9.1 Definition
+
+   “Liquidity flows” describe how price moves **from one liquidity pool to another**, driven by:
+
+   - Liquidity grabs (stop runs)
+   - Then displacement in the direction of trend or reversal
+
+   ---
+
+   ### 9.2 Path of least resistance
+
+   Key ideas:
+
+   1. **Breakaway candles & BOS** show intent
+      - Strong impulsive move + BOS → price often wants to continue after a corrective pullback
+
+   2. **Failed expansions**
+      - If price attempts to break a level but fails (no sustained breakaway candle), it often:
+        - Returns into the prior range
+        - Targets the opposite side’s liquidity
+
+   3. **Targeting liquidity zones**
+      - After BOS up:
+        - Pullback typically targets the **last higher low / origin OB** fueling the move
+      - After BOS down:
+        - Pullback targets the **last lower high / supply zone**
+
+   ---
+
+   ### 9.3 Anticipating sweeps
+
+   - In an uptrend:
+     - Expect sweeps of internal equal lows / prior daily lows
+     - Tap demand/golden pocket
+     - Then continuation to remove equal highs / prior highs
+
+   - In a downtrend:
+     - Expect sweeps of internal equal highs / prior highs
+     - Tap supply/golden pocket
+     - Then continuation to new lows
+
+   - At HTF turning points:
+     - Watch for sweeps of **external liquidity** (major swing high/low)
+     - Immediate strong breakaway candle in opposite direction → early reversal signal
+
+   ---
+
+   ### 9.4 How it affects decisions
+
+   Liqui­dity flows influence:
+
+   - **Directional conviction**
+     - After BOS + successful retest, expect continuation to next major liquidity pool
+
+   - **Holding/scaling/exiting**
+     - Hold until price nears a major liquidity pool in trade direction
+     - Take partial profits just before major pools
+     - If price behaves opposite of expected flow (e.g. cannot move away from a swept level), consider reducing or closing
+
+   ---
+
+   ## 10. HTF bias calculation (step-by-step)
+
+   1. **Monthly**
+      - Identify macro trend (HH/HL or LH/LL)
+      - Mark nearest Monthly S/R above and below
+      - Note main swing highs/lows and major equal highs/lows
+      - Observe whether price is in upper/lower half of the Monthly range
+
+   2. **Weekly**
+      - Determine primary trend:
+        - HH/HL → bullish
+        - LH/LL → bearish
+      - Identify:
+        - Latest BOS
+        - Any H&S/inverse H&S
+        - Weekly OBs at Monthly S/R
+      - Define Weekly bias:
+        - Bullish, Bearish, or Neutral
+
+   3. **Daily**
+      - Within Weekly bias:
+        - Classify current leg as impulse or correction
+      - Find Daily supply/demand zones that align with HTF levels & fibs
+      - Decide whether:
+        - Daily is moving with Weekly (trend continuation), or
+        - Daily is in correction, or
+        - A reversal framework is forming at HTF level
+
+   ---
+
+   ### 10.2 Conflict resolution
+
+   - Weekly up, Daily down:
+     - Daily down viewed as correction unless:
+       - At major HTF resistance with H&S / reversal pattern
+     - Look for **longs** at:
+       - Daily demand
+       - HTF support
+       - Golden pocket retracements of bullish impulses
+
+   - Weekly down, Daily up:
+     - Daily up viewed as correction unless at HTF support with clear reversal
+     - Look for **shorts** at:
+       - Daily supply
+       - HTF resistance
+       - Golden pocket retracements of bearish impulses
+
+   - Opposite trends without HTF involvement:
+     - Stand aside until Daily re-aligns with Weekly or a clean HTF reversal is confirmed
+
+   ---
+
+   ## 11. 4H confirmation logic (3-candle rule)
+
+   ### 11.1 Role of 4H
+
+   4H is used to:
+
+   - Confirm that the **Daily framework (setup)** is being respected
+   - Provide a **precise, mechanically defined entry trigger**
+   - Avoid blindly entering at Daily levels without evidence of holding
+
+   ---
+
+   ### 11.2 Required 4H signal – new core rule
+
+   For both longs and shorts, the **only required 4H trigger** is:
+
+   - **Three consecutive 4H candles closing inside the Daily entry zone**, then
+   - **Enter on the close of the 3rd candle**
+
+   Definitions:
+
+   - **Daily entry zone (longs)**:
+     - Overlap of:
+       - Daily **demand** / OB
+       - Daily **fib golden pocket (0.618–0.796)** of the correct Daily impulse
+       - Ideally HTF S/R support
+
+   - **Daily entry zone (shorts)**:
+     - Overlap of:
+       - Daily **supply** / OB
+       - Daily **fib golden pocket (0.618–0.796)** of the correct Daily impulse
+       - Ideally HTF S/R resistance
+
+   4H rules:
+
+   - Longs:
+     - 3 consecutive 4H closes **inside and respecting the zone as support**
+   - Shorts:
+     - 3 consecutive 4H closes **inside and respecting the zone as resistance**
+   - No requirement for 4H BOS/CHOCH or mandatory sweeps;
+     - Those can appear as **supporting confluence**, not conditions
+
+   ---
+
+   ### 11.3 Optional secondary 4H signals
+
+   Not required for entry, but can add confidence:
+
+   - Candle patterns:
+     - Strong engulfing candle in trade direction
+     - Long lower wicks at demand (for longs)
+     - Long upper wicks at supply (for shorts)
+   - Minor structure shifts:
+     - Small 4H CHOCH in direction of HTF trend
+
+   If the 3-candle rule is met but secondary signals are ugly, risk can be adjusted, but the core rule still stands.
+
+   ---
+
+   ## 12. Entry criteria & examples
+
+   ### 12.1 LONG setup checklist
+
+   A valid LONG must satisfy:
+
+   1. **HTF bias**
+      - Weekly bias **bullish**, or
+      - Weekly neutral but at strong Monthly support with clear bullish Daily framework (inverse H&S, Bullish N)
+
+   2. **Location**
+      - Price located at/near:
+        - Monthly/Weekly **support S/R**
+        - **Daily demand / OB** that originated a Daily impulse
+        - **0.618–0.796 retracement** of the correct Daily impulse (leg-1 for N, neckline-break impulse for inverse H&S)
+
+   3. **Daily market structure**
+      - Either HL sequence intact, or
+      - CHOCH/BOS up forming at HTF support
+      - No recent strong Daily BOS down through key support
+
+   4. **Structural framework (if present)**
+      - Inverse H&S or Bullish N pattern at HTF level
+      - Not mandatory, but increases conviction
+
+   5. **4H confirmation – 3-candle rule**
+      - Price trades into the Daily zone (demand + fib golden pocket)
+      - On 4H:
+        - Price prints **3 consecutive 4H closes inside the zone**
+      - **Entry:**
+        - Go long at the **close of the 3rd 4H candle**
+
+   6. **Risk/Reward**
+      - Stop placed logically below:
+        - Daily demand zone low and relevant swing low
+      - First target (prior high or −0.25 extension) offers at least **2R**
+
+   ---
+
+   ### 12.2 SHORT setup checklist
+
+   Mirror conditions for shorts:
+
+   1. **HTF bias**
+      - Weekly bias **bearish**, or
+      - Weekly neutral at strong Monthly resistance with clear bearish Daily framework (H&S, Bearish V)
+
+   2. **Location**
+      - At/near:
+        - Monthly/Weekly resistance
+        - Daily supply / OB originating the Daily impulse down
+        - 0.618–0.796 retracement of the correct Daily impulse (leg-1 for V, neckline-break impulse for H&S)
+
+   3. **Daily structure**
+      - LH/LL structure intact or CHOCH/BOS down at resistance
+
+   4. **Framework (if present)**
+      - H&S or Bearish V pattern at HTF level
+
+   5. **4H confirmation – 3-candle rule**
+      - Price trades into the Daily zone (supply + fib golden pocket)
+      - On 4H:
+        - 3 consecutive closes inside the zone, respecting it as resistance
+      - **Entry:**
+        - Short at close of the 3rd 4H candle
+
+   6. **Risk/Reward**
+      - Initial TP (prior low or −0.25 extension) must give at least 2R
+
+   ---
+
+   ### 12.3 Example LONG scenarios
+
+   #### Example LONG 1 – Inverse H&S + demand + golden pocket
+
+   **Context**
+
+   - Weekly uptrend
+   - Price pulls back into Monthly support
+   - Daily forms an inverse H&S:
+     - Head sweeps external liquidity below a major low
+
+   **Setup**
+
+   1. After BOS above neckline, define the **Daily neckline-break impulse**.
+   2. Draw fib from body of the low that starts the impulse → wick of the BOS high.
+   3. Identify Daily demand at base of this move.
+   4. Price pulls back into 0.618–0.796 overlapping:
+      - Daily demand
+      - Monthly support
+
+   **4H**
+
+   - Price enters the zone
+   - 4H prints **3 consecutive candle closes inside the zone** (e.g. some wicks below, but closes hold demand)
+
+   **Entry**
+
+   - Long at close of 3rd 4H candle
+
+   **Stop**
+
+   - Below the demand low / head low
+
+   **Targets**
+
+   - TP1: prior swing high / neckline area
+   - TP2: −0.25 extension of neckline-break impulse
+   - TP3, TP4, TP5: −0.68, −1.00, −1.42, −2.00 as Weekly trend allows
+
+   ---
+
+   #### Example LONG 2 – Bullish N continuation from demand
+
+   **Context**
+
+   - Weekly & Daily uptrend
+   - Daily printed strong impulse up (leg-1) breaking key high
+   - Price now in leg-2 retracement
+
+   **Setup**
+
+   1. Draw fib on **Daily leg-1 impulse**:
+      - HL body → HH wick
+   2. Identify Daily demand/OB at origin of leg-1
+   3. Price retraces into 0.618–0.796 and may briefly sweep some internal equal lows into the zone (optional confluence)
+
+   **4H**
+
+   - Within the Daily zone, 4H prints **3 consecutive closes inside the zone**
+
+   **Entry**
+
+   - Long at close of 3rd 4H candle
+
+   **Stop**
+
+   - Below leg-2 swing low / OB low
+
+   **Targets**
+
+   - TP1: retest of leg-1 HH
+   - TP2: −0.25 extension of leg-1 impulse
+   - Further TPs at −0.68, −1.00, −1.42, −2.00 if trend is strong
+
+   ---
+
+   ### 12.4 Example SHORT scenarios
+
+   #### Example SHORT 1 – H&S at Weekly resistance
+
+   **Context**
+
+   - Weekly uptrend approaching Monthly/Weekly resistance
+   - Daily forms H&S, right shoulder fails to break higher
+
+   **Setup**
+
+   1. Neckline sits at HTF S/R / Daily demand turned resistance.
+   2. Price breaks neckline with strong bearish breakaway candle → Daily BOS down.
+   3. Define the Daily neckline-break impulse.
+   4. Draw fib from body of impulse high → wick of impulse low.
+   5. Identify Daily supply at base of neckline-break move, overlapping fib 0.618–0.796.
+
+   **4H**
+
+   - Price pulls back into Daily supply + golden pocket.
+   - 4H prints **3 consecutive closes inside this zone**.
+
+   **Entry**
+
+   - Short on close of 3rd 4H candle.
+
+   **Stop**
+
+   - Above right shoulder high (or head for conservative)
+
+   **Targets**
+
+   - TP1: prior swing low / first demand zone
+   - TP2: −0.25 extension of neckline-break impulse
+   - TP3–TP5: −0.68, −1.00, −1.42, −2.00 depending on follow-through
+
+   ---
+
+   #### Example SHORT 2 – Bearish V continuation from supply
+
+   **Context**
+
+   - Weekly & Daily downtrend
+   - Daily shows strong impulse down (leg-1) from Weekly resistance
+
+   **Setup**
+
+   1. Draw fib on **Daily leg-1 impulse down**:
+      - High body → low wick
+   2. Identify Daily supply / OB near 0.618–0.796.
+   3. Price retraces into golden pocket and may sweep internal highs into supply (optional confluence).
+
+   **4H**
+
+   - Inside the Daily zone, 4H prints **3 consecutive candle closes inside the zone**.
+
+   **Entry**
+
+   - Short on close of 3rd 4H candle.
+
+   **Stop**
+
+   - Above retracement high / supply wick.
+
+   **Targets**
+
+   - TP1: retest of leg-1 low.
+   - TP2: −0.25 extension.
+   - TP3–TP5: −0.68, −1.00, −1.42, −2.00 as trend continues.
+
+   ---
+
+   ## 13. Risk management & trade management
+
+   ### 13.1 Per-trade risk
+
+   - Configurable per account, typical range:
+     - **0.5%–1.5%** risk per trade
+   - Lot size is computed from:
+     - Risk amount
+     - Distance from entry to structural stop
+
+   ---
+
+   ### 13.2 Correlation & exposure
+
+   - Limit simultaneous risk on strongly correlated pairs:
+     - Example: cap total risk at **2–3%** across all EUR-cross longs, etc.
+   - Avoid over-stacking several trades that are effectively the same macro bet.
+
+   ---
+
+   ### 13.3 News & timing filters
+
+   - Optional:
+     - Avoid fresh entries shortly before high-impact news for that currency/asset.
+   - Late-week behaviour:
+     - Optionally skip new entries on **Friday** or use reduced size.
+
+   ---
+
+   ### 13.4 Trade management
+
+   - Initial SL:
+     - At structural invalidation (beyond Daily zone and key swing)
+   - TP ladder:
+     - TP1 near structure + −0.25
+     - TP2 at −0.68
+     - TP3 at −1.00
+     - Optional extended TPs at −1.42 and −2.00
+   - Breakeven policy:
+     - Optional: move SL to BE after TP1
+   - Trailing stops:
+     - Based on new structure:
+       - For longs: trail below higher lows
+       - For shorts: trail above lower highs
+
+   If price invalidates the structural story (e.g. breaks key swing against the position), consider early exit even if SL not yet hit.
+
+   ---
+
+   ## 14. Optimization goals (for research/bot)
+
+   For systematic testing and optimization (per asset, e.g. Jan 2024–Dec 2024):
+
+   - **Target number of trades**: ~60+ per year per asset (can be adjusted)
+   - **Target win-rate**: 70–100% (aggressive, but aspirational)
+   - **Target yearly return**: ~+70% or more (with robust risk controls)
+
+   These goals are **targets for future optimization**, not hard rules of the base strategy.
+
+11. Machine-learning style optimization based on this spec
+   - Treat the above spec (v3) as the **ground truth** for how the strategy MUST behave.
+   - The implementation in `strategy.py`, and all logic used by `/backtest` and `/output`, MUST:
+     - Follow this v3 spec exactly for structure, confluence, entries, stops and TPs.
+     - Only change **parameters, thresholds, and configuration** (e.g. confluence cutoffs, filter strength, RR minimums, TP fractioning) when optimizing.
+   - Use a machine-learning style feedback loop:
+     - Run backtests for each asset-year using the v3 spec.
+     - Compare the results to the required goals:
+       - ≥ 60 trades/year,
+       - 70–100% winrate,
+       - +50%–+400% yearly return.
+     - Adjust configuration parameters **within the boundaries of this spec**.
+     - Re-run backtests.
+     - Keep iterating until each asset-year meets all the goals at the same time, while still respecting the v3 spec logic.
+
+Summary:
+- Update `strategy_spec.md` to the v3 spec above and ensure all code follows it.
+- Use one unified, correct strategy implementation for BOTH live trading and backtesting.
+- Use correct historical prices and validate EUR_USD with the provided reference CSV.
+- Do NOT trade on forex holidays.
+- Implement a machine-learning style optimization loop that adjusts parameters based on backtest results until each asset-year achieves:
+  - ≥ 60 trades,
+  - 70%–100% win rate,
+  - +50%–+400% net return.
+- Implement `/output` to export a CSV of all trades for any backtest, with fully consistent and realistic prices and dates.

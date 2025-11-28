@@ -7,6 +7,7 @@ Features:
 - Partial profit taking support
 - Detailed trade logging
 - Multiple exit scenarios
+- Uses unified strategy_core for signal generation
 """
 
 from __future__ import annotations
@@ -17,12 +18,13 @@ from typing import List, Dict, Tuple, Optional
 from data import get_ohlcv
 from config import SIGNAL_MODE
 from strategy_core import (
-    _infer_trend,
-    _pick_direction_from_bias,
-    _compute_confluence_flags,
-    _find_pivots,
-    _atr,
+    generate_signals,
+    get_default_params,
+    Signal,
+    StrategyParams,
 )
+from forex_holidays import should_skip_trading
+from price_validation import validate_entry_price
 
 
 def _parse_partial_date(s: str, for_start: bool) -> Optional[date]:
@@ -131,18 +133,6 @@ def _candle_to_date(candle: Dict) -> Optional[date]:
 
 def _build_date_list(candles: List[Dict]) -> List[Optional[date]]:
     return [_candle_to_date(c) for c in candles]
-
-
-def _build_dt_list(candles: List[Dict]) -> List[Optional[datetime]]:
-    """Build list of datetime objects for timestamp-accurate slicing."""
-    return [_candle_to_datetime(c) for c in candles]
-
-
-def _slice_up_to_dt(candles: List[Dict], dts: List[Optional[datetime]], cutoff_dt: Optional[datetime]) -> List[Dict]:
-    """Slice candles up to and including cutoff datetime (timestamp-accurate)."""
-    if cutoff_dt is None:
-        return []
-    return [c for c, t in zip(candles, dts) if t and t <= cutoff_dt]
 
 
 def _maybe_exit_trade(
@@ -284,13 +274,25 @@ def _maybe_exit_trade(
     return None
 
 
+def _signal_to_bar_date(signal: Signal, candles: List[Dict]) -> Optional[date]:
+    """Get the date for a signal based on its bar_index."""
+    if signal.bar_index < len(candles):
+        return _candle_to_date(candles[signal.bar_index])
+    return None
+
+
 def run_backtest(asset: str, period: str) -> Dict:
     """
     Walk-forward backtest of the Blueprint strategy.
     
+    Uses unified generate_signals() from strategy_core for signal generation,
+    ensuring consistency with live scanning.
+    
     Key improvements:
     - No look-ahead bias: uses only data available at each point
     - Proper trade execution simulation
+    - Holiday filtering using forex_holidays
+    - Price validation for entries
     - Detailed trade logging
     - Conservative exit assumptions
     """
@@ -311,18 +313,10 @@ def run_backtest(asset: str, period: str) -> Dict:
     h4 = get_ohlcv(asset, timeframe="H4", count=2000, use_cache=False) or []
 
     daily_dates = _build_date_list(daily)
-    weekly_dates = _build_date_list(weekly)
-    monthly_dates = _build_date_list(monthly)
-    h4_dates = _build_date_list(h4)
-    
-    daily_dts = _build_dt_list(daily)
-    weekly_dts = _build_dt_list(weekly)
-    monthly_dts = _build_dt_list(monthly)
-    h4_dts = _build_dt_list(h4)
 
     start_req, end_req = _parse_period(period)
 
-    indices: List[int] = []
+    period_indices: List[int] = []
 
     if start_req or end_req:
         last_d = next((d for d in reversed(daily_dates) if d is not None), None)
@@ -333,29 +327,29 @@ def run_backtest(asset: str, period: str) -> Dict:
 
         if start_date is None or end_date is None:
             start_idx = max(0, len(daily) - 260)
-            indices = list(range(start_idx, len(daily)))
+            period_indices = list(range(start_idx, len(daily)))
             period_label = "Last 260 Daily candles"
         else:
             for i, d in enumerate(daily_dates):
                 if d is None:
                     continue
                 if start_date <= d <= end_date:
-                    indices.append(i)
+                    period_indices.append(i)
 
-            if not indices:
+            if not period_indices:
                 start_idx = max(0, len(daily) - 260)
-                indices = list(range(start_idx, len(daily)))
+                period_indices = list(range(start_idx, len(daily)))
                 period_label = "Last 260 Daily candles"
             else:
-                sd = daily_dates[indices[0]]
-                ed = daily_dates[indices[-1]]
+                sd = daily_dates[period_indices[0]]
+                ed = daily_dates[period_indices[-1]]
                 period_label = f"{sd.isoformat()} - {ed.isoformat()}" if sd and ed else period
     else:
         start_idx = max(0, len(daily) - 260)
-        indices = list(range(start_idx, len(daily)))
+        period_indices = list(range(start_idx, len(daily)))
         period_label = "Last 260 Daily candles"
 
-    if not indices:
+    if not period_indices:
         return {
             "asset": asset,
             "period": period,
@@ -366,23 +360,35 @@ def run_backtest(asset: str, period: str) -> Dict:
             "notes": "No candles found in requested period.",
         }
 
+    params = get_default_params()
+    
+    signals = generate_signals(
+        candles=daily,
+        symbol=asset,
+        params=params,
+        monthly_candles=monthly if monthly else None,
+        weekly_candles=weekly if weekly else None,
+        h4_candles=h4 if h4 else None,
+    )
+
+    signal_by_bar = {s.bar_index: s for s in signals}
+
     trades: List[Dict] = []
     open_trade: Optional[Dict] = None
     
-    min_trade_conf = 2 if SIGNAL_MODE == "standard" else 1
-    cooldown_bars = 0
-    last_trade_idx = -1
+    cooldown_bars = params.cooldown_bars
+    last_trade_idx = -cooldown_bars - 1
+    holidays_skipped = 0
+    price_validation_failed = 0
 
-    for idx in indices:
+    for idx in period_indices:
         c = daily[idx]
         d_i = daily_dates[idx]
-        cutoff_dt = daily_dts[idx]
-        if d_i is None or cutoff_dt is None:
+        if d_i is None:
             continue
 
         high = c["high"]
         low = c["low"]
-        close = c["close"]
 
         if open_trade is not None and idx > open_trade["entry_index"]:
             closed = _maybe_exit_trade(open_trade, high, low, d_i)
@@ -398,57 +404,37 @@ def run_backtest(asset: str, period: str) -> Dict:
         if idx - last_trade_idx < cooldown_bars:
             continue
 
-        daily_slice = _slice_up_to_dt(daily, daily_dts, cutoff_dt)
-        if len(daily_slice) < 30:
+        if should_skip_trading(d_i):
+            holidays_skipped += 1
             continue
 
-        weekly_slice = _slice_up_to_dt(weekly, weekly_dts, cutoff_dt)
-        if not weekly_slice or len(weekly_slice) < 8:
+        signal = signal_by_bar.get(idx)
+        if signal is None:
             continue
-
-        monthly_slice = _slice_up_to_dt(monthly, monthly_dts, cutoff_dt)
-        h4_slice = _slice_up_to_dt(h4, h4_dts, cutoff_dt)
-
-        mn_trend = _infer_trend(monthly_slice) if monthly_slice else "mixed"
-        wk_trend = _infer_trend(weekly_slice) if weekly_slice else "mixed"
-        d_trend = _infer_trend(daily_slice) if daily_slice else "mixed"
-
-        direction, _, _ = _pick_direction_from_bias(mn_trend, wk_trend, d_trend)
-
-        flags, notes, trade_levels = _compute_confluence_flags(
-            monthly_slice,
-            weekly_slice,
-            daily_slice,
-            h4_slice,
-            direction,
-        )
-
-        entry, sl, tp1, tp2, tp3, tp4, tp5 = trade_levels
-
-        confluence_score = sum(1 for v in flags.values() if v)
-
-        has_confirmation = flags.get("confirmation", False)
-        has_rr = flags.get("rr", False)
-        has_location = flags.get("location", False)
-        has_fib = flags.get("fib", False)
-        has_liquidity = flags.get("liquidity", False)
-        has_structure = flags.get("structure", False)
-        has_htf_bias = flags.get("htf_bias", False)
-
-        quality_factors = sum([has_location, has_fib, has_liquidity, has_structure, has_htf_bias])
         
-        if has_rr and confluence_score >= min_trade_conf and quality_factors >= 1:
-            status = "active"
-        elif confluence_score >= min_trade_conf:
-            status = "watching"
-        else:
-            status = "scan_only"
-
-        if status != "active":
+        if not signal.is_active:
             continue
+
+        entry = signal.entry
+        sl = signal.stop_loss
+        tp1 = signal.tp1
+        tp2 = signal.tp2
+        tp3 = signal.tp3
+        direction = signal.direction
 
         if entry is None or sl is None or tp1 is None:
             continue
+
+        is_valid_entry, entry_msg = validate_entry_price(
+            entry_price=entry,
+            candle_high=high,
+            candle_low=low,
+            direction=direction,
+        )
+        
+        if not is_valid_entry:
+            price_validation_failed += 1
+            entry = c["close"]
 
         risk = abs(entry - sl)
         if risk <= 0:
@@ -462,12 +448,12 @@ def run_backtest(asset: str, period: str) -> Dict:
             "tp1": tp1,
             "tp2": tp2,
             "tp3": tp3,
-            "tp4": tp4,
-            "tp5": tp5,
+            "tp4": None,
+            "tp5": None,
             "risk": risk,
             "entry_date": d_i,
             "entry_index": idx,
-            "confluence": confluence_score,
+            "confluence": signal.confluence_score,
         }
 
     from config import ACCOUNT_SIZE, RISK_PER_TRADE_PCT
@@ -518,6 +504,11 @@ def run_backtest(asset: str, period: str) -> Dict:
         f"Expectancy: {avg_rr:+.2f}R / trade\n"
         f"TP1+Trail ({tp1_trail_hits}), TP2 ({tp2_hits}), TP3 ({tp3_hits}), SL ({sl_hits})"
     )
+    
+    if holidays_skipped > 0:
+        notes_text += f"\nHolidays skipped: {holidays_skipped}"
+    if price_validation_failed > 0:
+        notes_text += f"\nPrice validations adjusted: {price_validation_failed}"
 
     return {
         "asset": asset,
@@ -536,4 +527,6 @@ def run_backtest(asset: str, period: str) -> Dict:
         "notes": notes_text,
         "account_size": ACCOUNT_SIZE,
         "risk_per_trade_pct": RISK_PER_TRADE_PCT,
+        "holidays_skipped": holidays_skipped,
+        "price_validation_adjusted": price_validation_failed,
     }

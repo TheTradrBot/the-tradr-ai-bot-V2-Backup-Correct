@@ -318,6 +318,8 @@ async def help_command(interaction: discord.Interaction):
 **Analysis:**
 `/backtest [asset] [period]` - Test strategy performance
   Example: `/backtest EUR_USD "Jan 2024 - Dec 2024"`
+`/output [asset] [period]` - Export trades to CSV file
+  Example: `/output EUR_USD "Jan 2024 - Dec 2024"`
 
 **System:**
 `/cache` - View cache statistics
@@ -558,6 +560,59 @@ async def backtest_cmd(interaction: discord.Interaction, asset: str, period: str
     except Exception as e:
         print(f"[/backtest] Error backtesting {asset}: {e}")
         await interaction.followup.send(f"Error running backtest for **{asset}**: {str(e)}")
+
+
+@bot.tree.command(name="output", description='Export backtest trades to CSV. Example: /output EUR_USD "Jan 2024 - Dec 2024"')
+@app_commands.describe(
+    asset="The asset to backtest (e.g., EUR_USD)",
+    period="The time period (e.g., 'Jan 2024 - Dec 2024')"
+)
+async def output_cmd(interaction: discord.Interaction, asset: str, period: str):
+    """Export backtest trades to a downloadable CSV file."""
+    await interaction.response.defer()
+    
+    try:
+        from trade_export import export_trades_to_csv, get_backtest_with_trades
+        import io
+        
+        asset_clean = asset.upper().replace("/", "_")
+        result = get_backtest_with_trades(asset_clean, period)
+        trades = result.get("trades", [])
+        
+        if not trades:
+            await interaction.followup.send(f"No trades found for **{asset}** in period **{period}**.")
+            return
+        
+        csv_content = export_trades_to_csv(asset_clean, period, trades)
+        
+        filename = f"{asset_clean}_{period.replace(' ', '_').replace('-', 'to')}_trades.csv"
+        filename = "".join(c for c in filename if c.isalnum() or c in "._-")
+        
+        file = discord.File(
+            io.BytesIO(csv_content.encode('utf-8')),
+            filename=filename
+        )
+        
+        total_trades = result.get("total_trades", len(trades))
+        win_rate = result.get("win_rate", 0)
+        net_return = result.get("net_return_pct", 0)
+        
+        summary = (
+            f"**Trade Export - {asset_clean}**\n"
+            f"Period: {result.get('period', period)}\n\n"
+            f"Total Trades: {total_trades}\n"
+            f"Win Rate: {win_rate:.1f}%\n"
+            f"Net Return: {net_return:+.1f}%\n\n"
+            f"CSV file attached below:"
+        )
+        
+        await interaction.followup.send(summary, file=file)
+        
+    except Exception as e:
+        print(f"[/output] Error exporting {asset}: {e}")
+        import traceback
+        traceback.print_exc()
+        await interaction.followup.send(f"Error exporting trades for **{asset}**: {str(e)}")
 
 
 @bot.tree.command(name="cache", description="View cache statistics.")
