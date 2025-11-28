@@ -39,6 +39,27 @@ Trade signals include:
 
 ## Recent Changes
 
+**November 28, 2025 - Unified Strategy Architecture & Enhanced Features**
+- Refactored backtest.py to use strategy_core.py functions (single source of truth)
+- Added forex holiday filtering - bot won't trade on market holidays
+- Added price validation against EUR/USD reference data
+- New /output command exports backtest trades to downloadable CSV file
+- Created strategy_optimizer.py for machine-learning style parameter tuning
+- Strategy v3 specification with detailed HTF confluence rules and Fibonacci zones
+
+**Key New Files:**
+- `strategy_spec_v3.md` - Complete v3 strategy specification
+- `forex_holidays.py` - Forex market holiday calendar (2024-2025)
+- `price_validation.py` - Price validation against reference data
+- `trade_export.py` - CSV export for backtest trades
+- `strategy_optimizer.py` - Parameter optimization loop
+- `eurusd_reference_prices.csv` - EUR/USD reference prices for validation
+
+**Performance Targets:**
+- Total trades: >= 60 per year per asset
+- Win rate: 70-100%
+- Net return: +50% to +400%
+
 **November 26, 2025 - Live Price Fix for Trade Activation**
 - Fixed critical bug: Trade entries now use **live OANDA prices** instead of historical candle close prices
 - Trade activation is now **gated on live price availability** - no fallback to stale data
@@ -168,6 +189,7 @@ Preferred communication style: Simple, everyday language.
 
 **Analysis:**
 - `/backtest [asset] [period]` - Test strategy performance
+- `/output [asset] [period]` - Export trades to CSV file
 
 **System:**
 - `/cache` - View cache statistics
