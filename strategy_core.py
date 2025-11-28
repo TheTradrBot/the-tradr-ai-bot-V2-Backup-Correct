@@ -1222,9 +1222,23 @@ def simulate_trades(
     return trades
 
 
-def get_default_params() -> StrategyParams:
-    """Get default strategy parameters."""
-    return StrategyParams()
+def get_default_params(asset: str = "") -> StrategyParams:
+    """Get strategy parameters with asset-specific overrides."""
+    params = StrategyParams()
+    
+    # Asset-specific optimizations
+    if asset == "EUR_USD":
+        # EUR/USD: Be more selective, focus on high-confluence setups
+        params.min_confluence = 4  # Higher threshold = fewer, better trades
+        params.atr_sl_multiplier = 1.0  # Tight stops
+        params.atr_tp1_multiplier = 1.2  # Wider first target
+        params.atr_tp2_multiplier = 2.0  # Wider second target  
+        params.atr_tp3_multiplier = 3.0  # Much wider third target
+        params.require_confirmation_for_active = True
+        params.require_rr_for_active = True
+        params.min_rr_ratio = 1.5  # Strict R:R requirement
+    
+    return params
 
 
 def get_aggressive_params() -> StrategyParams:
