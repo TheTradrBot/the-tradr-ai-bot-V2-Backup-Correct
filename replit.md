@@ -21,130 +21,74 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 - **Risk Per Trade**: 2.5% ($250 per trade)
 - **Maximum Trades Per Day**: 12
 
-### CURRENT Strategy - High R:R Bollinger Band Mean Reversion
-Based on architect analysis, pivoted from high win-rate to high R:R approach.
+## CURRENT Strategy - V3 HTF S/R + BOS (NO RSI, NO SMC, NO Fibonacci TPs)
 
-**Key Insight**: With $250 risk per trade and 4:1 R:R, only ~20-25% win rate is needed to pass challenge.
+**User's strict requirements**: Strategy uses ONLY HTF S/R zones + Break of Structure (BOS) confirmation with structural take profits. NO RSI, NO SMC, NO Fibonacci for TPs.
 
-| R:R Target | Min Win Rate | Expected Monthly P/L |
-|------------|--------------|----------------------|
-| 1.5:1 | 50% | +$1,875 |
-| 2.5:1 | 35% | +$1,688 |
-| 4.0:1 | 25% | +$1,875 |
-| 6.0:1 | 20% | +$3,000 |
+### V3 Strategy Components (strategy_v3.py)
+- **Entry**: Price at HTF S/R zone (Daily/Weekly) + BOS confirmation on H4
+- **BOS Detection**: Two-stage confirmation - Soft BOS (wick touch) queues signal for 3 bars, Confirmed BOS (close break or engulfing) triggers entry
+- **Stop Loss**: Structural swing ±0.25 ATR from entry
+- **Take Profit**: Structural swing levels (min 2.0R target)
+- **Confluence Scoring**: Zone (+1) + HTF Bias aligned (+1) + BOS (+2 confirmed/+1 soft) + Momentum (+1)
+- **Break-Even**: Moves SL to entry at +1R
 
-**Strategy Components (strategy_highwin.py):**
-- **Entry**: Bollinger Band (2.0σ) + RSI(2) extremes (15/85)
-- **ADX Filter**: Only trade when ADX < 35 (range conditions)
-- **Stop Loss**: 0.35 ATR from entry
-- **Take Profit**: Single target at 4R (not staggered)
-- **Timeframe**: H4 candles (resampled from 1H Dukascopy data)
+### Current Parameters
+| Setting | Value |
+|---------|-------|
+| Min R:R | 2.0 |
+| Min Confluence | 2 |
+| Cooldown | 4 bars |
+| Max Daily Trades | 2 per asset |
+| Zone Tolerance | 0.5% daily, 0.8% weekly |
 
-**Challenge Simulator (challenge_simulator.py):**
-- Proper position sizing with $250 fixed risk per trade
-- Daily drawdown (5%) and total drawdown (10%) enforcement
-- Minimum 3 profitable days tracking
-- Step 1 (8%) and Step 2 (5%) pass detection
+### Latest Backtest Results (2024, 17 Assets)
+| Metric | Value |
+|--------|-------|
+| **Total P/L** | **+$37,635** |
+| **Avg Monthly** | +$184 |
+| **Months Passed** | 2/204 (1%) |
+| **Best Performers** | BTC_USD (+$9,250), XAU_USD (+$7,312), USD_JPY (+$7,110) |
 
-**Backtest Results (2024, 4R Single TP):**
-| Asset | Trades | Win Rate | Challenge Result |
-|-------|--------|----------|------------------|
-| XAU_USD | 67 | 22.4% | **PASS (+$2,000)** |
-| NAS100_USD | 75 | 18.7% | BLOWN (-$1,000) |
-| AUD_USD | 95 | 20.0% | BLOWN (-$1,000) |
-| GBP_USD | 100 | 17.0% | BLOWN (-$1,250) |
-| EUR_USD | 96 | 19.8% | BLOWN (-$1,250) |
+### Monthly Pass Rate Reality
+**Architect Analysis (November 2025):**
+- 100% monthly pass rate (204/204) is **mathematically unattainable** with any single strategy
+- Best realistic target: **35-55% pass rate** with portfolio-level coordination
+- Main blocker: "3 profitable days" requirement - winning trades cluster on 1-2 calendar days
+- Strategy is profitable overall but struggles to spread wins across 3+ distinct days
 
-### Latest Backtest Results (Sep 2024 - Oct 2025)
-| Period | Total Net | Avg Monthly | Pass Rate | Best Month | $3k+ Months |
-|--------|-----------|-------------|-----------|------------|-------------|
-| 14 Months | **+$27,253** | **+$1,947** | 14% (2/14) | +$20,064 (Mar 2025) | 2/14 (14%) |
+### Recommended Next Steps
+1. **Portfolio Scheduler**: Coordinate entries across multiple assets to engineer 3+ profitable days
+2. **Session-Aware Spacing**: Stagger executions by trading session (Asia/London/NY)
+3. **Partial Profit Banking**: Scale out 50% at first target to bank intra-day wins
 
-### Monthly Breakdown
-| Month | Trades | Win Rate | Net P/L | Result |
-|-------|--------|----------|---------|--------|
-| Oct 2024 | 62 | 37.1% | +$13,315 | **PASSED** |
-| Mar 2025 | 48 | 45.8% | +$20,064 | **PASSED** |
-| Apr 2025 | 22 | 36.4% | +$2,459 | Step 2 only |
-| Jun 2025 | 17 | 29.4% | -$154 | Failed |
-
-### Data Limitation
-**OANDA practice API only provides 14 months of historical data** (Sep 2024 - Oct 2025). No 2023 data is available through this API.
-
-### Key Findings
-- **Trade Volume Matters**: Months with 40+ trades and 35%+ win rate hit $10k+ profits
-- **Low Trade Months**: Months with <10 trades consistently lose (~-$800)
-- **Best Configuration**: 2.5% risk, 15 trades/day max, cooldown=3
-- **Mathematical Reality**: 100% monthly pass rate is not achievable due to market variance and data limitations
-
-### Trading Fees (Per Asset)
-| Asset Type | Spread | Commission | Avg Fee/Trade |
-|------------|--------|------------|---------------|
-| Forex Majors | 1-1.5 pips | $7/lot | ~$12-17 |
-| Cross Pairs | 1.5-2 pips | $7/lot | ~$15-20 |
-| XAU/USD | 25 pips | $6/lot | ~$3.50 |
-| Crypto | 0.20% | - | ~$20-25 |
-| Indices | 0.5-1 pt | $0 | ~$0.50 |
-
-### Assets Traded (10 total)
-Forex: EUR/USD, GBP/USD, USD/CHF, AUD/USD, USD/CAD, EUR/GBP, GBP/JPY
-Metals: XAU/USD (Gold)
-Crypto: ETH/USD
-Indices: NAS100
-
-### Lot Size Formula
-```
-lot_size = risk_usd / (sl_pips × pip_value)
-```
-Example: $250 risk / (15 pips × $10/pip) = 1.67 lots
-
-### Discord Commands
-- `/pass <month> <year>`: Check if challenge would be passed for given month
-- Exports CSV with trade details including lot sizes
-
-## OPTIMIZED SMC STRATEGY RESULTS (2024-2025 Backtest)
-
-**12/16 ASSETS HIT +50% TARGET (Smart Money Concepts):**
-
-| Asset | Annual Return | Trades | Win Rate | R:R | Strategy |
-|-------|---------------|--------|----------|-----|----------|
-| EUR_USD | +70% | 294 | 9.5% | 12:1 | SMC + High R:R |
-| GBP_USD | +80% | 284 | 9.9% | 12:1 | SMC + High R:R |
-| USD_JPY | +87% | 265 | 12.1% | 10:1 | SMC + High R:R |
-| NZD_USD | +90% | 313 | 9.9% | 12:1 | SMC + High R:R |
-| USD_CAD | +127% | 287 | 16.0% | 8:1 | SMC |
-| EUR_GBP | +83% | 288 | 18.4% | 6:1 | SMC |
-| EUR_JPY | +59% | 277 | 20.2% | 5:1 | SMC |
-| XAU_USD | +97% | 274 | 19.3% | 6:1 | SMC |
-| BTC_USD | +55% | 286 | 10.8% | 10:1 | SMC + High R:R |
-| ETH_USD | +114% | 276 | 10.9% | 12:1 | SMC + High R:R |
-| SPX500_USD | +94% | 275 | 14.9% | 8:1 | SMC |
-| NAS100_USD | +102% | 304 | 19.1% | 6:1 | SMC |
-
-**Total Portfolio Return: +$1,075,000 (+1075%)**
-
-### Strategy Files (Cleaned Up)
-- `strategy_highwin.py` - **ACTIVE** - BB+RSI(2) mean reversion with 4R targets (challenge-validated)
-- `strategy.py` - Live scanning wrapper that uses strategy_highwin for Discord bot
-- `challenge_simulator.py` - Simulates 5%ers challenge rules with proper position sizing
-- `challenge_5ers.py` - Challenge backtest runner
+### Key Files
+| File | Purpose |
+|------|---------|
+| `strategy_v3.py` | **ACTIVE** - HTF S/R + BOS signal generation |
+| `challenge_5ers.py` | Challenge backtest runner |
+| `challenge_simulator.py` | 5%ers rules simulation with position sizing |
+| `backtest_v3.py` | V3 strategy backtesting engine |
+| `main.py` | Discord bot with slash commands and autoscan |
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Strategy requirement: NO RSI, NO SMC, NO Fibonacci for TPs - only HTF S/R + BOS.
 
 ## System Architecture
 
 ### Core Components and Design
 
-The bot's architecture is built around a modular strategy pipeline, allowing for independent trading modules like `Reversal` (HTF S/R mean-reversion) and `Trend` (EMA pullback continuation). It uses a 7-pillar confluence system for signal generation, evaluated across multiple timeframes (Monthly, Weekly, Daily, H4).
-A `ScanResult` dataclass encapsulates setup information.
-The `Backtest Engine` ensures walk-forward simulation without look-ahead bias and conservative exit logic.
-A robust `Data Layer` integrates with the OANDA v20 API, supported by an `Intelligent Caching System` with TTL-based, thread-safe operations for efficient API response management.
+The bot's architecture is built around a modular strategy pipeline using the V3 approach:
+- **HTF S/R Zones**: Identified from Daily and Weekly candles with configurable tolerance
+- **Break of Structure (BOS)**: Two-stage confirmation with soft/confirmed detection
+- **Structural Take Profits**: Pure price structure swing levels (no Fibonacci)
+- **TradeSignal Dataclass**: Encapsulates signal information including entry, SL, TP, confluence score, status
+
+A robust **Data Layer** integrates with the OANDA v20 API, supported by an **Intelligent Caching System** with TTL-based, thread-safe operations.
 Professional Discord embed formatting is handled by `discord_output.py` and `formatting.py`.
-The main `Bot` (`main.py`) manages Discord slash commands, a 4-hour autoscan loop, and trade tracking.
-The system incorporates a 5%ers 100K High Stakes risk model for position sizing, including calculations for account size, risk percentage, USD risk, and lot size. Trade exits are laddered (TP1 @ 50%, TP2 @ 30%, Runner @ 20% with trailing SL).
-The bot also includes features for forex holiday filtering, price validation against reference data, and an optimization framework for strategy parameter tuning.
+The main **Bot** (`main.py`) manages Discord slash commands, a 4-hour autoscan loop, and trade tracking.
 
 ### UI/UX Decisions
 
@@ -152,21 +96,16 @@ Discord is the primary interface for user interaction, providing professional em
 
 ### Technical Implementations & Feature Specifications
 
-- **7 Pillars of Confluence:** HTF Bias, Location (S/R, supply/demand), Fibonacci (50%-79.6%), Liquidity, Structure, Confirmation (4H BOS, momentum), and R:R (min 1.5R).
-- **Trade Status Levels:** ACTIVE (entry triggered), WATCHING (waiting for confirmation), SCAN (low confluence).
-- **Risk Management:** Configurable `ACCOUNT_SIZE`, `RISK_PER_TRADE_PCT`, `MAX_DAILY_LOSS`, `MAX_TOTAL_DRAWDOWN`, `MAX_OPEN_RISK`.
-- **Position Sizing:** Dynamically calculates lot sizes based on account risk, stop loss distance, and pip value.
-- **Strategy Optimization:** Includes `data_loader.py` for CSV historical data, `strategy_core.py` for parameterized signal generation and simulation, `backtest_engine.py` for comprehensive performance metrics, `optimizer.py` for parameter search, and `report.py` for analysis.
-- **Live Price Integration:** Trade entries and TP/SL monitoring use live OANDA prices, preventing stale data issues.
-- **Caching:** TTL-based caching for OANDA API responses (Monthly: 1hr, Weekly: 30min, Daily: 10min, H4: 5min).
-- **Discord Commands:** Extensive commands for scanning, trading, analysis (backtest, export), and system management.
+- **Signal Statuses**: ACTIVE (confirmed BOS, enter now), WATCHING (soft BOS, waiting for confirmation)
+- **Risk Management**: $250 per trade (2.5% of $10K), max 10% drawdown, max 5% daily drawdown
+- **Position Sizing**: Dynamically calculates lot sizes based on account risk, stop loss distance, and pip value
+- **Live Price Integration**: Trade entries and TP/SL monitoring use live OANDA prices
 
 ### System Design Choices
 
-- **Modular Strategy:** Allows for independent development and deployment of trading modules.
-- **Single Source of Truth:** Backtesting functions leverage `strategy_core.py` to ensure consistency between backtesting and live operations.
-- **Conservative Exit Logic:** Prioritizes realistic backtest results by checking SL before TP on the same bar and implementing trailing stops.
-- **No Look-Ahead Bias:** Implemented in the backtesting engine for accurate performance evaluation.
+- **Conservative Exit Logic**: Checks SL before TP on same bar, implements break-even at +1R
+- **No Look-Ahead Bias**: Implemented in backtesting engine for accurate performance evaluation
+- **Pending Signal Queue**: Soft BOS signals are queued for 3 bars awaiting confirmed BOS
 
 ## External Dependencies
 
@@ -180,7 +119,6 @@ Discord is the primary interface for user interaction, providing professional em
 - `DISCORD_BOT_TOKEN`: Required for Discord bot authentication.
 - `OANDA_API_KEY`: OANDA API key (enables autoscan functionality).
 - `OANDA_ACCOUNT_ID`: OANDA account identifier.
-- `USE_OPTIMIZED_STRATEGY`: Toggle for using optimized strategy parameters.
 
 ### Python Dependencies
 
