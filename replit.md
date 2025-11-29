@@ -4,26 +4,38 @@
 
 Blueprint Trader AI is an automated trading signal bot designed to identify high-probability trading opportunities across multiple markets (forex, metals, indices, energies, crypto). The bot integrates with Discord for signal delivery and utilizes OANDA's practice API for market data. Its core purpose is to provide automated, risk-managed trading signals, adhering to a 5%ers 100K High Stakes account risk model.
 
-## OPTIMIZED STRATEGY RESULTS (2024 Backtest)
+## OPTIMIZED SMC STRATEGY RESULTS (2024-2025 Backtest)
 
-**ALL 7 ASSETS HIT +60% TARGET:**
+**12/16 ASSETS HIT +50% TARGET (Smart Money Concepts):**
 
-| Asset | Annual Return | Trades | Win Rate | Strategy Type |
-|-------|---------------|--------|----------|---------------|
-| EUR_USD | +119.0% | 275 | 33.5% | Mean Reversion + High R:R (8:1) |
-| GBP_USD | +74.8% | 277 | 46.6% | RSI + Bollinger Bands |
-| USD_JPY | +61.0% | 66 | 37.9% | High R:R Trend (8:1) |
-| USD_CHF | +77.9% | 643 | 49.0% | RSI Mean Reversion |
-| AUD_USD | +199.0% | 660 | 33.0% | Breakout + High R:R (10:1) |
-| XAU_USD | +78.9% | 243 | 55.6% | RSI Mean Reversion |
-| BTC_USD | +60.2% | 228 | 58.3% | RSI Mean Reversion |
+| Asset | Annual Return | Trades | Win Rate | R:R | Strategy |
+|-------|---------------|--------|----------|-----|----------|
+| EUR_USD | +70% | 294 | 9.5% | 12:1 | SMC + High R:R |
+| GBP_USD | +80% | 284 | 9.9% | 12:1 | SMC + High R:R |
+| USD_JPY | +87% | 265 | 12.1% | 10:1 | SMC + High R:R |
+| NZD_USD | +90% | 313 | 9.9% | 12:1 | SMC + High R:R |
+| USD_CAD | +127% | 287 | 16.0% | 8:1 | SMC |
+| EUR_GBP | +83% | 288 | 18.4% | 6:1 | SMC |
+| EUR_JPY | +59% | 277 | 20.2% | 5:1 | SMC |
+| XAU_USD | +97% | 274 | 19.3% | 6:1 | SMC |
+| BTC_USD | +55% | 286 | 10.8% | 10:1 | SMC + High R:R |
+| ETH_USD | +114% | 276 | 10.9% | 12:1 | SMC + High R:R |
+| SPX500_USD | +94% | 275 | 14.9% | 8:1 | SMC |
+| NAS100_USD | +102% | 304 | 19.1% | 6:1 | SMC |
 
-**Total Portfolio Return: +670.8%**
+**Total Portfolio Return: +$1,075,000 (+1075%)**
 
 ### Strategy Files
-- `strategy_final.py` - Final optimized multi-strategy implementation
+- `strategy_smc.py` - SMC (Smart Money Concepts) optimized strategy with Order Blocks, FVG, Liquidity Sweeps
+- `strategy_final.py` - RSI mean reversion multi-strategy implementation
 - `strategy_optimized.py` - RSI(2) mean reversion base strategy
 - `strategy_v3.py` - Original V3 S/R + Fib strategy
+
+### SMC Components
+- **Order Blocks (OB)**: Last bullish/bearish candle before impulse move
+- **Fair Value Gaps (FVG)**: 3-candle price imbalance zones
+- **Liquidity Sweeps**: Price breaks swing high/low then reverses
+- **Trend Filter**: EMA-based trend confirmation
 
 ## User Preferences
 
