@@ -457,9 +457,10 @@ def find_demand_zones(candles: List[Dict], swing_lows: List[Dict]) -> List[Dict]
             continue
         
         impulse_move = candles[idx + 3]['close'] - candles[idx]['low']
-        avg_range = sum(c['high'] - c['low'] for c in candles[max(0, idx-10):idx]) / 10 if idx >= 10 else 0.01
+        range_sum = sum(c['high'] - c['low'] for c in candles[max(0, idx-10):idx])
+        avg_range = range_sum / 10 if idx >= 10 and range_sum > 0 else 0.0001
         
-        if impulse_move > avg_range * 2:
+        if avg_range > 0 and impulse_move > avg_range * 2:
             zone_high = candles[idx]['open'] if candles[idx]['close'] > candles[idx]['open'] else candles[idx]['close']
             zone_low = candles[idx]['low']
             zones.append({'idx': idx, 'high': zone_high, 'low': zone_low, 'type': 'demand', 'strength': impulse_move / avg_range})
@@ -476,9 +477,10 @@ def find_supply_zones(candles: List[Dict], swing_highs: List[Dict]) -> List[Dict
             continue
         
         impulse_move = candles[idx]['high'] - candles[idx + 3]['close']
-        avg_range = sum(c['high'] - c['low'] for c in candles[max(0, idx-10):idx]) / 10 if idx >= 10 else 0.01
+        range_sum = sum(c['high'] - c['low'] for c in candles[max(0, idx-10):idx])
+        avg_range = range_sum / 10 if idx >= 10 and range_sum > 0 else 0.0001
         
-        if impulse_move > avg_range * 2:
+        if avg_range > 0 and impulse_move > avg_range * 2:
             zone_low = candles[idx]['open'] if candles[idx]['close'] < candles[idx]['open'] else candles[idx]['close']
             zone_high = candles[idx]['high']
             zones.append({'idx': idx, 'high': zone_high, 'low': zone_low, 'type': 'supply', 'strength': impulse_move / avg_range})
@@ -524,10 +526,8 @@ def find_structure_target(swing_highs: List[Dict], swing_lows: List[Dict], direc
 def load_candles_with_fallback(symbol: str, granularity: str = 'H4') -> List[Dict]:
     """Load candles from CSV if available, otherwise use OANDA API."""
     try:
-        from data_loader import load_ohlcv_from_csv, resample_to_timeframe, df_to_candle_list
+        from data_loader import load_ohlcv_from_csv, df_to_candle_list
         df = load_ohlcv_from_csv(symbol)
-        if granularity != 'D':
-            df = resample_to_timeframe(df, granularity)
         candles = df_to_candle_list(df)
         for c in candles:
             if isinstance(c['time'], str):
