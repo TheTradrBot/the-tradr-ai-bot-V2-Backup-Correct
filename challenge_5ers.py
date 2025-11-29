@@ -36,8 +36,8 @@ CHALLENGE_CONFIG = {
     'step2_target_pct': 5.0,
     'max_drawdown_pct': 10.0,
     'daily_drawdown_pct': 5.0,
-    'risk_per_trade_pct': 1.5,
-    'max_trades_per_day': 3,
+    'risk_per_trade_pct': 2.5,
+    'max_trades_per_day': 5,
     'min_profitable_days': 3,
     'leverage': 100,
 }
@@ -78,7 +78,20 @@ ASSET_CONFIGS_HIGH_WINRATE = {
     'NAS100_USD': {'tp_rr': 1.5, 'atr_mult': 1.0, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.1, 'rsi_ob': 70, 'rsi_os': 30},
 }
 
-ASSET_CONFIGS = ASSET_CONFIGS_HIGH_WINRATE
+ASSET_CONFIGS_OPTIMIZED = {
+    'EUR_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+    'USD_CHF': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 11.0, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+    'NAS100_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.1, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+    'USD_CAD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 7.5, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+    'GBP_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+    'EUR_GBP': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 12.5, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+    'AUD_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+    'GBP_JPY': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 9.0, 'pip_size': 0.01, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+    'XAU_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.01, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+    'ETH_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.01, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+}
+
+ASSET_CONFIGS = ASSET_CONFIGS_OPTIMIZED
 
 ASSET_FEES = {
     'EUR_USD': {'spread_pips': 1.0, 'commission': 7.0},
@@ -384,7 +397,8 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
             if has_sweep: confluence.append('SWEEP')
             confluence.append('RSI')
             
-            if len(confluence) < 2:
+            min_conf = config.get('min_confluence', 2)
+            if len(confluence) < min_conf + 1:
                 continue
             
             for ob in active_obs:
