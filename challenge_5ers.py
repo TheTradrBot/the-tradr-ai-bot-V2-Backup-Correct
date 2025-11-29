@@ -521,6 +521,24 @@ def find_structure_target(swing_highs: List[Dict], swing_lows: List[Dict], direc
     return None
 
 
+def load_candles_with_fallback(symbol: str, granularity: str = 'H4') -> List[Dict]:
+    """Load candles from CSV if available, otherwise use OANDA API."""
+    try:
+        from data_loader import load_ohlcv_from_csv, resample_to_timeframe, df_to_candle_list
+        df = load_ohlcv_from_csv(symbol)
+        if granularity != 'D':
+            df = resample_to_timeframe(df, granularity)
+        candles = df_to_candle_list(df)
+        for c in candles:
+            if isinstance(c['time'], str):
+                pass
+            else:
+                c['time'] = c['time'].strftime('%Y-%m-%dT%H:%M:%S')
+        return candles
+    except (FileNotFoundError, Exception):
+        return fetch_candles(symbol, count=5000, granularity=granularity)
+
+
 def run_challenge_backtest(month: int, year: int) -> Dict:
     """Run backtest using V3 HTF Confluence Strategy with Archer EMA methodology."""
     
@@ -529,7 +547,7 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
     all_signals = []
     
     for symbol, config in ASSET_CONFIGS.items():
-        candles = fetch_candles(symbol, count=2000, granularity='H4')
+        candles = load_candles_with_fallback(symbol, granularity='H4')
         if len(candles) < 200:
             continue
         
