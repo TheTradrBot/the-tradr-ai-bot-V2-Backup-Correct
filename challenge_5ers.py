@@ -42,7 +42,7 @@ CHALLENGE_CONFIG = {
     'leverage': 100,
 }
 
-ASSET_CONFIGS = {
+ASSET_CONFIGS_HIGH_RR = {
     'EUR_USD': {'tp_rr': 6.0, 'atr_mult': 0.4, 'ema': 100, 'pip_value': 10.0, 'pip_size': 0.0001},
     'GBP_USD': {'tp_rr': 6.0, 'atr_mult': 0.4, 'ema': 100, 'pip_value': 10.0, 'pip_size': 0.0001},
     'USD_JPY': {'tp_rr': 6.0, 'atr_mult': 0.4, 'ema': 100, 'pip_value': 9.0, 'pip_size': 0.01},
@@ -59,6 +59,19 @@ ASSET_CONFIGS = {
     'SPX500_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 100, 'pip_value': 1.0, 'pip_size': 0.1},
     'NAS100_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 100, 'pip_value': 1.0, 'pip_size': 0.1},
 }
+
+ASSET_CONFIGS_HIGH_WINRATE = {
+    'EUR_USD': {'tp_rr': 1.5, 'atr_mult': 1.0, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 70, 'rsi_os': 30},
+    'GBP_USD': {'tp_rr': 1.5, 'atr_mult': 1.0, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 70, 'rsi_os': 30},
+    'USD_JPY': {'tp_rr': 1.5, 'atr_mult': 1.0, 'ema': 50, 'pip_value': 9.0, 'pip_size': 0.01, 'rsi_ob': 70, 'rsi_os': 30},
+    'USD_CHF': {'tp_rr': 1.5, 'atr_mult': 1.0, 'ema': 50, 'pip_value': 11.0, 'pip_size': 0.0001, 'rsi_ob': 70, 'rsi_os': 30},
+    'AUD_USD': {'tp_rr': 1.5, 'atr_mult': 1.0, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 70, 'rsi_os': 30},
+    'XAU_USD': {'tp_rr': 1.5, 'atr_mult': 1.0, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.01, 'rsi_ob': 70, 'rsi_os': 30},
+    'SPX500_USD': {'tp_rr': 1.5, 'atr_mult': 1.0, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.1, 'rsi_ob': 70, 'rsi_os': 30},
+    'NAS100_USD': {'tp_rr': 1.5, 'atr_mult': 1.0, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.1, 'rsi_ob': 70, 'rsi_os': 30},
+}
+
+ASSET_CONFIGS = ASSET_CONFIGS_HIGH_WINRATE
 
 
 @dataclass
@@ -145,6 +158,48 @@ def calculate_atr(candles: List[Dict], period: int = 14) -> float:
     return sum(trs[-period:]) / period
 
 
+def calculate_rsi(closes: List[float], period: int = 14) -> List[float]:
+    """Calculate RSI indicator."""
+    if len(closes) < period + 1:
+        return []
+    
+    rsi_values = []
+    gains = []
+    losses = []
+    
+    for i in range(1, len(closes)):
+        change = closes[i] - closes[i-1]
+        gains.append(max(0, change))
+        losses.append(max(0, -change))
+    
+    if len(gains) < period:
+        return []
+    
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    
+    for i in range(period - 1):
+        rsi_values.append(50)
+    
+    if avg_loss == 0:
+        rsi_values.append(100)
+    else:
+        rs = avg_gain / avg_loss
+        rsi_values.append(100 - (100 / (1 + rs)))
+    
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+        
+        if avg_loss == 0:
+            rsi_values.append(100)
+        else:
+            rs = avg_gain / avg_loss
+            rsi_values.append(100 - (100 / (1 + rs)))
+    
+    return rsi_values
+
+
 def find_order_blocks(candles: List[Dict]) -> List[Dict]:
     obs = []
     for i in range(60, len(candles) - 1):
@@ -226,9 +281,12 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
         ema_period = config['ema']
         pip_value = config['pip_value']
         pip_size = config['pip_size']
+        rsi_ob = config.get('rsi_ob', 70)
+        rsi_os = config.get('rsi_os', 30)
         
         closes = [c['close'] for c in candles]
         ema = calculate_ema(closes, ema_period)
+        rsi = calculate_rsi(closes, 14)
         obs = find_order_blocks(candles)
         fvgs = find_fair_value_gaps(candles)
         sweeps = find_liquidity_sweeps(candles)
@@ -245,8 +303,17 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
             if ema_idx < 0 or ema_idx >= len(ema):
                 continue
             
+            rsi_idx = i - 1
+            if rsi_idx < 0 or rsi_idx >= len(rsi):
+                continue
+            current_rsi = rsi[rsi_idx]
+            
             trend = 'LONG' if price > ema[ema_idx] else 'SHORT'
             trend_type = 'bullish' if trend == 'LONG' else 'bearish'
+            
+            rsi_confirms = (trend == 'LONG' and current_rsi < 50) or (trend == 'SHORT' and current_rsi > 50)
+            if not rsi_confirms:
+                continue
             
             active_obs = [ob for ob in obs if ob['idx'] < i and ob['idx'] not in used_obs and 
                           i - ob['idx'] < 100 and ob['type'] == trend_type]
@@ -258,13 +325,14 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
             in_fvg = any(fvg['low'] <= price <= fvg['high'] for fvg in active_fvgs)
             has_sweep = bool(curr_sweeps)
             
-            if not (in_ob or in_fvg or has_sweep):
-                continue
-            
             confluence = []
             if in_ob: confluence.append('OB')
             if in_fvg: confluence.append('FVG')
             if has_sweep: confluence.append('SWEEP')
+            confluence.append('RSI')
+            
+            if len(confluence) < 2:
+                continue
             
             for ob in active_obs:
                 if ob['low'] <= price <= ob['high']:
