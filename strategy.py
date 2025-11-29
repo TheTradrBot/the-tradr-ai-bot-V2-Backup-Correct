@@ -86,8 +86,8 @@ def scan_single_asset(symbol: str) -> Optional[ScanResult]:
             h4_candles=h4_candles,
             daily_candles=daily_candles,
             weekly_candles=weekly_candles,
-            min_rr=4.0,
-            min_confluence=3
+            min_rr=2.0,
+            min_confluence=2
         )
         
         if signal:
