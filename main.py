@@ -542,10 +542,10 @@ async def live(interaction: discord.Interaction):
         await interaction.followup.send(f"Error fetching live prices: {str(e)}")
 
 
-@bot.tree.command(name="backtest", description='Backtest the V3 strategy with date range. Example: /backtest EUR_USD January 2024 - December 2024')
+@bot.tree.command(name="backtest", description='Backtest the V3 strategy with date range. Example: /backtest EUR_USD Jan 24 - Sep 24')
 @app_commands.describe(
     asset="The asset to backtest (e.g., EUR_USD, XAU_USD)",
-    date_range="Date range: 'Month Year - Month Year' (e.g., 'January 2024 - October 2024')"
+    date_range="Date range: 'Mon YY - Mon YY' (e.g., 'Jan 24 - Sep 24')"
 )
 async def backtest_cmd(interaction: discord.Interaction, asset: str, date_range: str):
     await interaction.response.defer()
@@ -557,29 +557,32 @@ async def backtest_cmd(interaction: discord.Interaction, asset: str, date_range:
         
         parts = date_range.split('-')
         if len(parts) != 2:
-            await interaction.followup.send("Invalid date range format. Use: 'Month Year - Month Year' (e.g., 'January 2024 - October 2024')")
+            await interaction.followup.send("Invalid format. Use: 'Mon YY - Mon YY' (e.g., 'Jan 24 - Sep 24')")
             return
         
         month_names = {
-            'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
-            'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
+            'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+            'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
         }
         
         start_part = parts[0].strip().split()
         end_part = parts[1].strip().split()
         
         if len(start_part) != 2 or len(end_part) != 2:
-            await interaction.followup.send("Invalid date range format. Use: 'Month Year - Month Year' (e.g., 'January 2024 - October 2024')")
+            await interaction.followup.send("Invalid format. Use: 'Mon YY - Mon YY' (e.g., 'Jan 24 - Sep 24')")
             return
         
         start_month_str = start_part[0].lower()
-        start_year = int(start_part[1])
+        start_year_short = int(start_part[1])
         end_month_str = end_part[0].lower()
-        end_year = int(end_part[1])
+        end_year_short = int(end_part[1])
         
         if start_month_str not in month_names or end_month_str not in month_names:
-            await interaction.followup.send(f"Invalid month names. Valid months: {', '.join(month_names.keys())}")
+            await interaction.followup.send(f"Invalid month. Valid: Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec")
             return
+        
+        start_year = 2000 + start_year_short if start_year_short < 100 else start_year_short
+        end_year = 2000 + end_year_short if end_year_short < 100 else end_year_short
         
         start_month = month_names[start_month_str]
         end_month = month_names[end_month_str]
@@ -609,7 +612,7 @@ async def backtest_cmd(interaction: discord.Interaction, asset: str, date_range:
         be = sum(1 for t in trades if t.get('result') == 'BE')
         win_rate = 100 * wins / len(trades) if trades else 0
         
-        month_range = f"{start_month_str.capitalize()} {start_year} - {end_month_str.capitalize()} {end_year}"
+        month_range = f"{start_month_str.upper()} {start_year_short} - {end_month_str.upper()} {end_year_short}"
         
         msg = (
             f"**Backtest Results - {asset_clean} ({month_range})**\n\n"
@@ -622,7 +625,7 @@ async def backtest_cmd(interaction: discord.Interaction, asset: str, date_range:
         
         await interaction.followup.send(msg)
     except ValueError as e:
-        await interaction.followup.send(f"Invalid year format. Please use numeric years (e.g., 2024)")
+        await interaction.followup.send(f"Invalid year format. Use 2-digit or 4-digit years (e.g., '24' or '2024')")
     except Exception as e:
         print(f"[/backtest] Error backtesting {asset}: {e}")
         import traceback
