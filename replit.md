@@ -132,9 +132,10 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
 - **VERIFIED STRATEGY ALIGNMENT**: All backtest commands now use V3 Pro strategy:
   - `/backtest` - Uses V3 Pro (Fibonacci + Weekly S/R)
   - `/output` - Uses V3 Pro (now accepts "Jan 24 - Aug 24" format)
-  - `/pass` - Uses V3 Pro (updated from old V3 strategy)
+  - `/pass` - Uses V3 Pro with **ALL portfolio assets** (no longer per-asset)
   - Live trading signals (`strategy.py`) - Uses V3 Pro
 - **Backtest results are directly applicable to 5%ers challenge performance**
+- Portfolio assets for `/pass`: EUR_USD, GBP_USD, AUD_USD, USD_CAD, USD_JPY, USD_CHF, EUR_JPY, GBP_CAD, ETH_USD, BTC_USD, LTC_USD, BCH_USD
 
 ## System Architecture
 

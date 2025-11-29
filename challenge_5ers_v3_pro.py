@@ -425,6 +425,104 @@ def run_all_assets_v3_pro(year: int, min_rr: float = 2.5, min_confluence: int = 
     return results
 
 
+PORTFOLIO_ASSETS = [
+    'EUR_USD', 'GBP_USD', 'AUD_USD', 'USD_CAD', 'USD_JPY', 'USD_CHF',
+    'EUR_JPY', 'GBP_CAD',
+    'ETH_USD', 'BTC_USD', 'LTC_USD', 'BCH_USD',
+]
+
+
+def run_portfolio_month_challenge(
+    year: int,
+    month: int,
+    assets: Optional[List[str]] = None,
+    min_rr: float = 2.0,
+    min_confluence: int = 2
+) -> Dict:
+    """
+    Run 5%ers challenge simulation for a month using ALL assets.
+    Combines trades from all assets and simulates as a single challenge account.
+    
+    This matches real trading where you'd trade multiple pairs in a month.
+    """
+    if assets is None:
+        assets = PORTFOLIO_ASSETS
+    
+    all_trades = []
+    asset_stats = {}
+    
+    month_prefix = f"{year}-{month:02d}"
+    
+    for symbol in assets:
+        try:
+            daily_candles, weekly_candles = fetch_data_for_v3_pro(symbol)
+            
+            if len(daily_candles) < 60:
+                continue
+            
+            trades = backtest_v3_pro(
+                daily_candles=daily_candles,
+                weekly_candles=weekly_candles,
+                min_rr=min_rr,
+                min_confluence=min_confluence,
+                risk_per_trade=250.0
+            )
+            
+            month_trades = [t for t in trades if t['entry_time'].startswith(month_prefix)]
+            
+            for t in month_trades:
+                trade_copy = t.copy()
+                trade_copy['symbol'] = symbol
+                all_trades.append(trade_copy)
+            
+            asset_stats[symbol] = len(month_trades)
+            
+        except Exception as e:
+            print(f"[portfolio_month] Error processing {symbol}: {e}")
+            continue
+    
+    if not all_trades:
+        return {
+            'year': year,
+            'month': month,
+            'trades': [],
+            'step1_passed': False,
+            'step2_passed': False,
+            'total_pnl': 0,
+            'profitable_days': 0,
+            'asset_breakdown': asset_stats,
+            'reason': 'No trades found across all assets'
+        }
+    
+    all_trades.sort(key=lambda t: t['entry_time'])
+    
+    result = simulate_challenge(all_trades)
+    
+    wins = len([t for t in all_trades if t.get('result') in ['WIN', 'PARTIAL_WIN']])
+    win_rate = (wins / len(all_trades) * 100) if all_trades else 0
+    total_r = sum(t.get('r_result', t.get('r_multiple', 0)) for t in all_trades)
+    
+    return {
+        'year': year,
+        'month': month,
+        'trades': all_trades,
+        'total_trades': len(all_trades),
+        'step1_passed': result.get('step1_passed', False),
+        'step2_passed': result.get('step2_passed', False),
+        'total_pnl': result.get('final_balance', 10000) - 10000,
+        'final_balance': result.get('final_balance', 10000),
+        'profitable_days': result.get('profitable_days', 0),
+        'max_drawdown': result.get('max_drawdown', 0),
+        'daily_drawdown_hit': result.get('daily_dd_breach', False),
+        'blown': result.get('blown', False),
+        'blown_reason': result.get('blown_reason', ''),
+        'win_rate': win_rate,
+        'total_r': total_r,
+        'asset_breakdown': asset_stats,
+        'result': result
+    }
+
+
 def generate_v3_pro_summary(results: Dict) -> str:
     """Generate summary report for V3 Pro backtest."""
     

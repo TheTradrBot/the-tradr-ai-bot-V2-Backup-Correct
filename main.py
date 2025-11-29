@@ -777,14 +777,13 @@ async def debug_cmd(interaction: discord.Interaction):
         await interaction.response.send_message(f"Error getting debug info: {str(e)}", ephemeral=True)
 
 
-@bot.tree.command(name="pass", description="Check if 5%ers challenge would pass for a given month.")
+@bot.tree.command(name="pass", description="Check if 5%ers challenge would pass for a given month (all assets).")
 @app_commands.describe(
-    asset="The asset to test (e.g., EUR_USD, XAU_USD)",
     month="Month (1-12)",
     year="Year (e.g., 2023, 2024)"
 )
-async def pass_challenge(interaction: discord.Interaction, asset: str, month: int, year: int):
-    """Run 5%ers 10K challenge backtest for a specific month using V3 Pro strategy."""
+async def pass_challenge(interaction: discord.Interaction, month: int, year: int):
+    """Run 5%ers 10K challenge backtest for a specific month using ALL assets."""
     await interaction.response.defer()
     
     if month < 1 or month > 12:
@@ -796,10 +795,9 @@ async def pass_challenge(interaction: discord.Interaction, asset: str, month: in
         return
     
     try:
-        from challenge_5ers_v3_pro import run_monthly_challenge_simulation
+        from challenge_5ers_v3_pro import run_portfolio_month_challenge, PORTFOLIO_ASSETS
         
-        asset_clean = asset.upper().replace("/", "_")
-        result = await asyncio.to_thread(run_monthly_challenge_simulation, asset_clean, year, month)
+        result = await asyncio.to_thread(run_portfolio_month_challenge, year, month)
         
         if 'error' in result:
             await interaction.followup.send(f"Error: {result['error']}")
@@ -810,32 +808,41 @@ async def pass_challenge(interaction: discord.Interaction, asset: str, month: in
         total_pnl = result.get('total_pnl', 0)
         profitable_days = result.get('profitable_days', 0)
         trades = result.get('trades', [])
-        challenge_result = result.get('result', {})
+        total_trades = result.get('total_trades', len(trades))
+        win_rate = result.get('win_rate', 0)
+        total_r = result.get('total_r', 0)
+        final_balance = result.get('final_balance', 10000)
+        asset_breakdown = result.get('asset_breakdown', {})
         
         month_name = datetime(year, month, 1).strftime('%B %Y')
         
-        summary = f"**5%ERS 10K CHALLENGE - {asset_clean} - {month_name}**\n"
+        summary = f"**5%ERS 10K CHALLENGE - PORTFOLIO - {month_name}**\n"
         summary += "=" * 50 + "\n\n"
         
         if step1 and step2:
             summary += "**STATUS: PASSED BOTH STEPS!**\n"
         elif step1 and not step2:
             summary += "**STATUS: PASSED STEP 1 ONLY**\n"
-        elif challenge_result.get('blown', False):
-            summary += f"**STATUS: BLOWN** - {challenge_result.get('blown_reason', 'Unknown')}\n"
+        elif result.get('blown', False):
+            summary += f"**STATUS: BLOWN** - {result.get('blown_reason', 'Unknown')}\n"
         else:
             summary += "**STATUS: INCOMPLETE**\n"
-        
-        final_balance = challenge_result.get('final_balance', 10000)
-        win_count = len([t for t in trades if t.get('result') in ['WIN', 'PARTIAL_WIN']])
-        win_rate = (win_count / len(trades) * 100) if trades else 0
         
         summary += f"\n**Results:**\n"
         summary += f"Final Balance: ${final_balance:,.0f}\n"
         summary += f"Total P/L: ${total_pnl:+,.0f}\n"
-        summary += f"Total Trades: {len(trades)}\n"
+        summary += f"Total R: {total_r:+.1f}R\n"
+        summary += f"Total Trades: {total_trades}\n"
         summary += f"Win Rate: {win_rate:.1f}%\n"
         summary += f"Profitable Days: {profitable_days}\n"
+        
+        active_assets = [a for a, count in asset_breakdown.items() if count > 0]
+        if active_assets:
+            summary += f"\n**Trades by Asset:**\n"
+            for asset, count in sorted(asset_breakdown.items(), key=lambda x: -x[1]):
+                if count > 0:
+                    summary += f"  {asset}: {count}\n"
+        
         summary += f"\nStrategy: V3 Pro - Daily S/D + Golden Pocket + Wyckoff"
         
         await interaction.followup.send(summary)
