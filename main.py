@@ -542,41 +542,87 @@ async def live(interaction: discord.Interaction):
         await interaction.followup.send(f"Error fetching live prices: {str(e)}")
 
 
-@bot.tree.command(name="backtest", description='Backtest the V3 strategy. Example: /backtest EUR_USD 2024')
+@bot.tree.command(name="backtest", description='Backtest the V3 strategy with date range. Example: /backtest EUR_USD January 2024 - December 2024')
 @app_commands.describe(
     asset="The asset to backtest (e.g., EUR_USD, XAU_USD)",
-    year="The year to backtest (e.g., 2024)"
+    date_range="Date range: 'Month Year - Month Year' (e.g., 'January 2024 - October 2024')"
 )
-async def backtest_cmd(interaction: discord.Interaction, asset: str, year: int):
+async def backtest_cmd(interaction: discord.Interaction, asset: str, date_range: str):
     await interaction.response.defer()
     
     try:
         from datetime import datetime
         
         asset_clean = asset.upper().replace("/", "_")
-        start_date = datetime(year, 1, 1)
-        end_date = datetime(year, 12, 31)
         
-        result = await asyncio.to_thread(run_backtest, asset_clean, start_date, end_date)
+        parts = date_range.split('-')
+        if len(parts) != 2:
+            await interaction.followup.send("Invalid date range format. Use: 'Month Year - Month Year' (e.g., 'January 2024 - October 2024')")
+            return
+        
+        month_names = {
+            'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+            'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
+        }
+        
+        start_part = parts[0].strip().split()
+        end_part = parts[1].strip().split()
+        
+        if len(start_part) != 2 or len(end_part) != 2:
+            await interaction.followup.send("Invalid date range format. Use: 'Month Year - Month Year' (e.g., 'January 2024 - October 2024')")
+            return
+        
+        start_month_str = start_part[0].lower()
+        start_year = int(start_part[1])
+        end_month_str = end_part[0].lower()
+        end_year = int(end_part[1])
+        
+        if start_month_str not in month_names or end_month_str not in month_names:
+            await interaction.followup.send(f"Invalid month names. Valid months: {', '.join(month_names.keys())}")
+            return
+        
+        start_month = month_names[start_month_str]
+        end_month = month_names[end_month_str]
+        
+        from challenge_5ers_v3_pro import run_v3_pro_backtest_for_asset
+        
+        result = await asyncio.to_thread(
+            run_v3_pro_backtest_for_asset,
+            asset_clean,
+            start_year,
+            min_rr=1.5,
+            min_confluence=2,
+            partial_tp=True,
+            partial_tp_r=1.0,
+            start_month=start_month,
+            end_month=end_month
+        )
         
         if 'error' in result:
             await interaction.followup.send(f"Error: {result['error']}")
             return
         
-        stats = result.get('stats', {})
+        trades = result.get('trades', [])
+        total_r = sum(t.get('r_multiple', 0) for t in trades)
+        wins = sum(1 for t in trades if t.get('result') in ['WIN', 'PARTIAL_WIN'])
+        losses = sum(1 for t in trades if t.get('result') == 'LOSS')
+        be = sum(1 for t in trades if t.get('result') == 'BE')
+        win_rate = 100 * wins / len(trades) if trades else 0
+        
+        month_range = f"{start_month_str.capitalize()} {start_year} - {end_month_str.capitalize()} {end_year}"
         
         msg = (
-            f"**Backtest Results - {asset_clean} ({year})**\n\n"
-            f"Total Trades: {stats.get('total_trades', 0)}\n"
-            f"Win Rate: {stats.get('win_rate', 0):.1f}%\n"
-            f"Winners: {stats.get('winners', 0)} | Losers: {stats.get('losers', 0)}\n"
-            f"Total P/L: ${stats.get('total_pnl', 0):,.0f}\n"
-            f"Avg R/Trade: {stats.get('avg_r', 0):+.2f}\n"
-            f"Max Drawdown: ${stats.get('max_drawdown', 0):,.0f}\n\n"
-            f"Strategy: V3 HTF S/R + BOS + Structural TPs"
+            f"**Backtest Results - {asset_clean} ({month_range})**\n\n"
+            f"Total Trades: {len(trades)}\n"
+            f"Wins: {wins} | Losses: {losses} | BE: {be}\n"
+            f"Win Rate: {win_rate:.1f}%\n"
+            f"Total R: {total_r:+.1f}R\n\n"
+            f"Strategy: V3 Pro - Daily S/D + Golden Pocket + Wyckoff"
         )
         
         await interaction.followup.send(msg)
+    except ValueError as e:
+        await interaction.followup.send(f"Invalid year format. Please use numeric years (e.g., 2024)")
     except Exception as e:
         print(f"[/backtest] Error backtesting {asset}: {e}")
         import traceback
