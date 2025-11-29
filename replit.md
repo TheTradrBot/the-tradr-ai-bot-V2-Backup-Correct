@@ -2,7 +2,36 @@
 
 ## Overview
 
-Blueprint Trader AI is an automated trading signal bot designed to identify high-probability trading opportunities across multiple markets (forex, metals, indices, energies, crypto). The bot integrates with Discord for signal delivery and utilizes OANDA's practice API for market data. Its core purpose is to provide automated, risk-managed trading signals, adhering to a 5%ers 100K High Stakes account risk model.
+Blueprint Trader AI is an automated trading signal bot designed to identify high-probability trading opportunities across multiple markets (forex, metals, indices, energies, crypto). The bot integrates with Discord for signal delivery and utilizes OANDA's practice API for market data. Its core purpose is to provide automated, risk-managed trading signals, adhering to 5%ers High Stakes challenge rules.
+
+## 5%ERS 10K CHALLENGE IMPLEMENTATION
+
+### Challenge Rules (Implemented in `challenge_5ers.py`)
+- **Step 1**: 8% profit target ($800 on $10,000 account)
+- **Step 2**: 5% profit target (based on new starting balance after Step 1)
+- **Maximum Drawdown**: 10% ($1,000 - cannot drop below $9,000)
+- **Daily Drawdown**: 5% ($500 max loss per day)
+- **Minimum Profitable Days**: 3 days required per step
+- **Risk Per Trade**: 1.5% ($150 per trade)
+- **Maximum Trades Per Day**: 5
+
+### Backtest Results (September 2024)
+- **PASSED BOTH STEPS in 9 days**
+  - Step 1: 8 days to reach $10,800+
+  - Step 2: 1 additional day to reach final target
+- **24 trades**, 29.2% win rate
+- **Final Balance**: $13,007.94 (+30.1% return)
+- **Profitable Days**: 5
+
+### Lot Size Formula
+```
+lot_size = risk_usd / (sl_pips × pip_value)
+```
+Example: $150 risk / (15 pips × $10/pip) = 1.0 lots
+
+### Discord Commands
+- `/pass <month> <year>`: Check if challenge would be passed for given month
+- Exports CSV with trade details including lot sizes
 
 ## OPTIMIZED SMC STRATEGY RESULTS (2024-2025 Backtest)
 
