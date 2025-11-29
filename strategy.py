@@ -1,8 +1,12 @@
+"""
+Strategy module - Uses the 5%ers Challenge-validated strategy
+Bollinger Band + RSI(2) Mean Reversion with 4R targets
+"""
 from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Dict
 
 from data import get_ohlcv
 from config import (
@@ -11,13 +15,13 @@ from config import (
     INDICES,
     ENERGIES,
     CRYPTO_ASSETS,
-    SIGNAL_MODE,
 )
 
-from strategy_core import (
-    generate_signals,
-    get_default_params,
-    Signal,
+from strategy_highwin import (
+    generate_bb_signal,
+    calculate_atr,
+    ASSET_PARAMS,
+    STRATEGY_CONFIG,
 )
 
 MAX_SIGNAL_AGE_DAYS = 5
@@ -48,174 +52,113 @@ class ScanResult:
     what_to_look_for: str = ""
 
 
-def _signal_to_scan_result(signal: Signal) -> ScanResult:
-    """Convert a strategy_core Signal to a ScanResult for Discord display."""
-    setup_parts = []
+def _signal_to_scan_result(signal: Dict, symbol: str) -> ScanResult:
+    """Convert a strategy_highwin signal dict to ScanResult for Discord."""
+    direction = signal['direction'].upper()
     
-    if signal.flags.get("fib"):
-        setup_parts.append("Fib retracement")
-    if signal.flags.get("liquidity"):
-        setup_parts.append("Liquidity zone")
-    if signal.flags.get("structure"):
-        setup_parts.append("Structure aligned")
+    rsi_val = signal.get('rsi', 50)
+    adx_val = signal.get('adx', 20)
+    signal_type = signal.get('signal_type', 'bb_reversal')
     
-    setup_type = " + ".join(setup_parts) if setup_parts else "Price action"
-    
-    direction = signal.direction.upper()
-    look_for_parts = []
-    
-    if direction == "BULLISH":
-        look_for_parts.append("Bullish rejection from support")
-        if not signal.flags.get("confirmation"):
-            look_for_parts.append("Wait for 4H BOS up or bullish engulfing")
-        else:
-            look_for_parts.append("Entry trigger confirmed")
+    if direction == "LONG":
+        dir_text = "BULLISH"
+        what_to_look = "Long entry - BB bounce from lower band with RSI oversold"
     else:
-        look_for_parts.append("Bearish rejection from resistance")
-        if not signal.flags.get("confirmation"):
-            look_for_parts.append("Wait for 4H BOS down or bearish engulfing")
-        else:
-            look_for_parts.append("Entry trigger confirmed")
-    
-    what_to_look_for = ". ".join(look_for_parts)
+        dir_text = "BEARISH"
+        what_to_look = "Short entry - BB rejection from upper band with RSI overbought"
     
     summary = (
-        f"{direction} | {signal.confluence_score}/7 confluence | "
-        f"HTF={'Y' if signal.flags.get('htf_bias') else 'N'}, "
-        f"Loc={'Y' if signal.flags.get('location') else 'N'}, "
-        f"Fib={'Y' if signal.flags.get('fib') else 'N'}, "
-        f"Liq={'Y' if signal.flags.get('liquidity') else 'N'}, "
-        f"Struct={'Y' if signal.flags.get('structure') else 'N'}, "
-        f"4H={'Y' if signal.flags.get('confirmation') else 'N'}, "
-        f"RR={'Y' if signal.flags.get('rr') else 'N'}"
+        f"{dir_text} | BB+RSI Mean Reversion | "
+        f"RSI(2)={rsi_val:.1f}, ADX={adx_val:.1f} | "
+        f"4R Target"
     )
     
-    min_trade_conf = 4 if SIGNAL_MODE == "standard" else 3
-    
-    if signal.flags.get("confirmation") and signal.confluence_score >= min_trade_conf and signal.flags.get("rr"):
-        status = "active"
-    elif signal.confluence_score >= min_trade_conf - 1 and (signal.flags.get("location") or signal.flags.get("fib") or signal.flags.get("liquidity")):
-        status = "in_progress"
-    else:
-        status = "scan_only"
-    
     return ScanResult(
-        symbol=signal.symbol,
-        direction=signal.direction.lower(),
-        confluence_score=signal.confluence_score,
-        htf_bias=signal.notes.get("htf_bias", ""),
-        location_note=signal.notes.get("location", ""),
-        fib_note=signal.notes.get("fib", ""),
-        liquidity_note=signal.notes.get("liquidity", ""),
-        structure_note=signal.notes.get("structure", ""),
-        confirmation_note=signal.notes.get("confirmation", ""),
-        rr_note=signal.notes.get("rr", ""),
+        symbol=symbol,
+        direction=signal['direction'],
+        confluence_score=5,
+        htf_bias=f"ADX={adx_val:.1f} (range mode)" if adx_val < 35 else f"ADX={adx_val:.1f} (trending)",
+        location_note=f"Bollinger Band {signal_type}",
+        fib_note="",
+        liquidity_note="",
+        structure_note=f"RSI(2) = {rsi_val:.1f}",
+        confirmation_note="BB + RSI confirmed",
+        rr_note="4:1 R:R target",
         summary_reason=summary,
-        status=status,
-        entry=signal.entry,
-        stop_loss=signal.stop_loss,
-        tp1=signal.tp1,
-        tp2=signal.tp2,
-        tp3=signal.tp3,
-        setup_type=setup_type,
-        what_to_look_for=what_to_look_for,
+        status="active",
+        entry=signal['entry'],
+        stop_loss=signal['sl'],
+        tp1=signal['tp1'],
+        tp2=signal['tp2'],
+        tp3=signal['tp3'],
+        setup_type="BB Mean Reversion",
+        what_to_look_for=what_to_look,
     )
 
 
 def scan_single_asset(symbol: str) -> Optional[ScanResult]:
-    """Full Blueprint scan using unified strategy_core engine."""
+    """Scan a single asset using the challenge-validated BB+RSI strategy."""
     try:
-        monthly = get_ohlcv(symbol, timeframe="M", count=24) or []
-        weekly = get_ohlcv(symbol, timeframe="W", count=104) or []
-        daily = get_ohlcv(symbol, timeframe="D", count=500) or []
-        h4 = get_ohlcv(symbol, timeframe="H4", count=500) or []
-        
-        if not daily or not weekly:
+        candles = get_ohlcv(symbol, "H4", count=100)
+        if not candles or len(candles) < 30:
             return None
         
-        params = get_default_params()
-        signals = generate_signals(
-            candles=daily,
-            symbol=symbol,
-            params=params,
-            monthly_candles=monthly,
-            weekly_candles=weekly,
-            h4_candles=h4,
-        )
+        signal = generate_bb_signal(candles, symbol)
         
-        if not signals:
-            return None
+        if signal:
+            return _signal_to_scan_result(signal, symbol)
         
-        most_recent = signals[-1]
-        return _signal_to_scan_result(most_recent)
+        return None
+        
     except Exception as e:
-        print(f"[strategy] Error scanning {symbol}: {e}")
+        print(f"[scan] Error scanning {symbol}: {e}")
         return None
 
 
-def scan_group(symbols: List[str]) -> Tuple[List[ScanResult], List[ScanResult]]:
-    results: List[ScanResult] = []
-    trade_ideas: List[ScanResult] = []
-    total = len(symbols)
-
-    for i, sym in enumerate(symbols, 1):
-        print(f"  [{i}/{total}] Scanning {sym}...")
-        res = scan_single_asset(sym)
-        if not res:
-            continue
-        results.append(res)
-        if res.status in ("active", "in_progress"):
-            trade_ideas.append(res)
-
-    return results, trade_ideas
+def _scan_list(symbols: List[str], category: str) -> List[ScanResult]:
+    """Scan a list of symbols."""
+    results = []
+    print(f"[scan] Scanning {category}...")
+    for i, symbol in enumerate(symbols, 1):
+        print(f"  [{i}/{len(symbols)}] Scanning {symbol}...")
+        result = scan_single_asset(symbol)
+        if result:
+            results.append(result)
+    print(f"[scan] {category} done: {len(symbols)} scanned, {len(results)} signals")
+    return results
 
 
-def scan_forex() -> Tuple[List[ScanResult], List[ScanResult]]:
-    return scan_group(FOREX_PAIRS)
+def scan_forex() -> List[ScanResult]:
+    """Scan all forex pairs."""
+    return _scan_list(FOREX_PAIRS, "Forex")
 
 
-def scan_crypto() -> Tuple[List[ScanResult], List[ScanResult]]:
-    return scan_group(CRYPTO_ASSETS)
+def scan_crypto() -> List[ScanResult]:
+    """Scan all crypto assets."""
+    return _scan_list(CRYPTO_ASSETS, "Crypto")
 
 
-def scan_metals() -> Tuple[List[ScanResult], List[ScanResult]]:
-    return scan_group(METALS)
+def scan_metals() -> List[ScanResult]:
+    """Scan all metals."""
+    return _scan_list(METALS, "Metals")
 
 
-def scan_indices() -> Tuple[List[ScanResult], List[ScanResult]]:
-    return scan_group(INDICES)
+def scan_indices() -> List[ScanResult]:
+    """Scan all indices."""
+    return _scan_list(INDICES, "Indices")
 
 
-def scan_energies() -> Tuple[List[ScanResult], List[ScanResult]]:
-    return scan_group(ENERGIES)
+def scan_energies() -> List[ScanResult]:
+    """Scan all energies."""
+    return _scan_list(ENERGIES, "Energies")
 
 
-def scan_all_markets() -> Dict[str, Tuple[List[ScanResult], List[ScanResult]]]:
-    markets: Dict[str, Tuple[List[ScanResult], List[ScanResult]]] = {}
-
-    print("[scan] Scanning Forex...")
-    fx_results, fx_trades = scan_forex()
-    markets["Forex"] = (fx_results, fx_trades)
-    print(f"[scan] Forex done: {len(fx_results)} results")
-
-    print("[scan] Scanning Metals...")
-    metals_results, metals_trades = scan_metals()
-    markets["Metals"] = (metals_results, metals_trades)
-    print(f"[scan] Metals done: {len(metals_results)} results")
-
-    print("[scan] Scanning Indices...")
-    indices_results, indices_trades = scan_indices()
-    markets["Indices"] = (indices_results, indices_trades)
-    print(f"[scan] Indices done: {len(indices_results)} results")
-
-    print("[scan] Scanning Energies...")
-    energies_results, energies_trades = scan_energies()
-    markets["Energies"] = (energies_results, energies_trades)
-    print(f"[scan] Energies done: {len(energies_results)} results")
-
-    print("[scan] Scanning Crypto...")
-    crypto_results, crypto_trades = scan_crypto()
-    markets["Crypto"] = (crypto_results, crypto_trades)
-    print(f"[scan] Crypto done: {len(crypto_results)} results")
-
-    return markets
+def scan_all_markets() -> Dict[str, List[ScanResult]]:
+    """Scan all markets and return results by category."""
+    return {
+        "forex": scan_forex(),
+        "metals": scan_metals(),
+        "indices": scan_indices(),
+        "energies": scan_energies(),
+        "crypto": scan_crypto(),
+    }

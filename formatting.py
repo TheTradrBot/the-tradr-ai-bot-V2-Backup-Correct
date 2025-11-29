@@ -156,36 +156,41 @@ def format_autoscan_output(markets: dict) -> List[str]:
     
     summary_lines = ["📊 **4H AUTOSCAN COMPLETE**", ""]
     
-    total_potential = 0
+    total_signals = 0
     
-    for group_name, (scan_results, trade_ideas) in markets.items():
+    for group_name, scan_results in markets.items():
         if not scan_results:
+            summary_lines.append(f"**{group_name.title()}**: No signals")
             continue
         
-        potential = sum(1 for r in scan_results if r.status in ("active", "in_progress"))
-        total_potential += potential
+        signal_count = len(scan_results)
+        total_signals += signal_count
         
-        if potential > 0:
-            summary_lines.append(f"**{group_name}**: 👀 {potential} potential setup(s)")
+        if signal_count > 0:
+            summary_lines.append(f"**{group_name.title()}**: 🎯 {signal_count} signal(s)")
         else:
-            summary_lines.append(f"**{group_name}**: No setups")
+            summary_lines.append(f"**{group_name.title()}**: No signals")
     
     summary_lines.append("")
-    summary_lines.append(f"**Total**: 👀 {total_potential} potential setup(s) to watch")
+    summary_lines.append(f"**Total**: 🎯 {total_signals} signal(s)")
+    summary_lines.append("")
+    summary_lines.append("Strategy: BB+RSI Mean Reversion (4R Target)")
     
     messages.append("\n".join(summary_lines))
     
-    for group_name, (scan_results, _) in markets.items():
-        potential_setups = [r for r in scan_results if r.status in ("active", "in_progress")]
-        if potential_setups:
-            group_lines = [f"", f"**{group_name} - Potential Setups:**"]
-            for res in potential_setups:
-                emoji = "🟢" if res.direction == "bullish" else "🔴"
+    for group_name, scan_results in markets.items():
+        if scan_results:
+            group_lines = [f"", f"**{group_name.title()} Signals:**"]
+            for res in scan_results:
+                emoji = "🟢" if res.direction == "long" else "🔴"
+                dir_text = "LONG" if res.direction == "long" else "SHORT"
                 group_lines.append(
-                    f"{emoji} **{res.symbol}** {res.direction.upper()} | {res.confluence_score}/7"
+                    f"{emoji} **{res.symbol}** {dir_text}"
                 )
+                if res.entry:
+                    group_lines.append(f"   Entry: {res.entry:.5f} | SL: {res.stop_loss:.5f}")
                 if res.what_to_look_for:
-                    group_lines.append(f"   🎯 Trigger: {res.what_to_look_for}")
+                    group_lines.append(f"   {res.what_to_look_for}")
                 group_lines.append("")
             messages.append("\n".join(group_lines))
     

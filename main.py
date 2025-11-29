@@ -49,9 +49,9 @@ from discord_output import (
 from position_sizing import calculate_position_size_5ers
 from config import ACCOUNT_SIZE, RISK_PER_TRADE_PCT
 
-from backtest import run_backtest
 from data import get_ohlcv, get_cache_stats, clear_cache, get_current_prices
 from challenge_5ers import run_challenge_backtest, format_challenge_result, export_challenge_trades_csv
+from strategy_highwin import run_yearly_backtest
 
 
 ACTIVE_TRADES: dict[str, ScanResult] = {}
@@ -544,31 +544,44 @@ async def live(interaction: discord.Interaction):
         await interaction.followup.send(f"Error fetching live prices: {str(e)}")
 
 
-@bot.tree.command(name="backtest", description='Backtest the strategy. Example: /backtest EUR_USD "Jan 2024 - Dec 2024"')
+@bot.tree.command(name="backtest", description='Backtest the strategy. Example: /backtest EUR_USD 2024')
 @app_commands.describe(
-    asset="The asset to backtest (e.g., EUR_USD)",
-    period="The time period (e.g., 'Jan 2024 - Dec 2024')"
+    asset="The asset to backtest (e.g., EUR_USD, XAU_USD)",
+    year="The year to backtest (e.g., 2024)"
 )
-async def backtest_cmd(interaction: discord.Interaction, asset: str, period: str):
+async def backtest_cmd(interaction: discord.Interaction, asset: str, year: int):
     await interaction.response.defer()
     
     try:
-        result = run_backtest(asset.upper().replace("/", "_"), period)
-        msg = format_backtest_result(result)
-        chunks = split_message(msg, limit=1900)
-        for chunk in chunks:
-            await interaction.followup.send(chunk)
+        asset_clean = asset.upper().replace("/", "_")
+        result = run_yearly_backtest(asset_clean, year)
+        
+        if 'error' in result:
+            await interaction.followup.send(f"Error: {result['error']}")
+            return
+        
+        msg = (
+            f"**Backtest Results - {asset_clean} ({year})**\n\n"
+            f"Total Trades: {result.get('total_trades', 0)}\n"
+            f"Win Rate: {result.get('win_rate', 0):.1f}%\n"
+            f"Gross P/L: ${result.get('gross_pnl', 0):,.0f}\n"
+            f"Net P/L: ${result.get('net_pnl', 0):,.0f}\n"
+            f"Return: {result.get('return_pct', 0):+.1f}%\n\n"
+            f"Strategy: BB+RSI Mean Reversion (4R Target)"
+        )
+        
+        await interaction.followup.send(msg)
     except Exception as e:
         print(f"[/backtest] Error backtesting {asset}: {e}")
         await interaction.followup.send(f"Error running backtest for **{asset}**: {str(e)}")
 
 
-@bot.tree.command(name="output", description='Export backtest trades to CSV. Example: /output EUR_USD "Jan 2024 - Dec 2024"')
+@bot.tree.command(name="output", description='Export backtest trades to CSV. Example: /output EUR_USD 2024')
 @app_commands.describe(
-    asset="The asset to backtest (e.g., EUR_USD)",
-    period="The time period (e.g., 'Jan 2024 - Dec 2024')"
+    asset="The asset to backtest (e.g., EUR_USD, XAU_USD)",
+    year="The year to backtest (e.g., 2024)"
 )
-async def output_cmd(interaction: discord.Interaction, asset: str, period: str):
+async def output_cmd(interaction: discord.Interaction, asset: str, year: int):
     """Export backtest trades to a downloadable CSV file."""
     await interaction.response.defer()
     
@@ -577,17 +590,16 @@ async def output_cmd(interaction: discord.Interaction, asset: str, period: str):
         import io
         
         asset_clean = asset.upper().replace("/", "_")
-        result = get_backtest_with_trades(asset_clean, period)
+        result = get_backtest_with_trades(asset_clean, year)
         trades = result.get("trades", [])
         
         if not trades:
-            await interaction.followup.send(f"No trades found for **{asset}** in period **{period}**.")
+            await interaction.followup.send(f"No trades found for **{asset}** in {year}.")
             return
         
-        csv_content = export_trades_to_csv(asset_clean, period, trades)
+        csv_content = export_trades_to_csv(asset_clean, year, trades)
         
-        filename = f"{asset_clean}_{period.replace(' ', '_').replace('-', 'to')}_trades.csv"
-        filename = "".join(c for c in filename if c.isalnum() or c in "._-")
+        filename = f"{asset_clean}_{year}_trades.csv"
         
         file = discord.File(
             io.BytesIO(csv_content.encode('utf-8')),
@@ -596,14 +608,13 @@ async def output_cmd(interaction: discord.Interaction, asset: str, period: str):
         
         total_trades = result.get("total_trades", len(trades))
         win_rate = result.get("win_rate", 0)
-        net_return = result.get("net_return_pct", 0)
+        net_pnl = result.get("net_pnl", 0)
         
         summary = (
-            f"**Trade Export - {asset_clean}**\n"
-            f"Period: {result.get('period', period)}\n\n"
+            f"**Trade Export - {asset_clean} ({year})**\n\n"
             f"Total Trades: {total_trades}\n"
             f"Win Rate: {win_rate:.1f}%\n"
-            f"Net Return: {net_return:+.1f}%\n\n"
+            f"Net P/L: ${net_pnl:+,.0f}\n\n"
             f"CSV file attached below:"
         )
         
@@ -782,8 +793,8 @@ async def autoscan_loop():
         active_trade_symbols = []
         pending_trades = []
         
-        for group_name, (scan_results, trade_ideas) in markets.items():
-            for trade in trade_ideas:
+        for group_name, scan_results in markets.items():
+            for trade in scan_results:
                 if trade.status != "active":
                     continue
                 trade_key = f"{trade.symbol}_{trade.direction}"
