@@ -3031,21 +3031,28 @@ class HTFLevel:
 
 @dataclass
 class HTFConfluenceParams:
-    """Parameters for HTF confluence strategy."""
+    """Parameters for HTF confluence strategy.
+    
+    Tuned for higher trade frequency while maintaining quality:
+    - Widened sr_tolerance_atr (0.5 → 1.0) for broader S/R zone entries
+    - Reduced cooldown_bars (2 → 1) to allow more frequent signals
+    - Lowered min_confluence thresholds to increase trade count
+    - Recalibrated TP ratios for earlier partials and tighter stops
+    """
     fib_low: float = 0.55
     fib_high: float = 0.79
-    min_reversal_confluence: int = 4
-    min_continuation_confluence: int = 3
-    max_concurrent_setups: int = 3
-    cooldown_bars: int = 2
+    min_reversal_confluence: int = 3
+    min_continuation_confluence: int = 2
+    max_concurrent_setups: int = 10
+    cooldown_bars: int = 1
     pivot_lookback: int = 3
-    sr_tolerance_atr: float = 0.5
-    body_min_atr_ratio: float = 0.5
+    sr_tolerance_atr: float = 1.0
+    body_min_atr_ratio: float = 0.4
     sl_buffer_risk_ratio: float = 0.33
-    sl_buffer_atr_ratio: float = 0.4
-    tp1_rr: float = 1.5
-    tp2_rr: float = 2.5
-    tp3_rr: float = 4.0
+    sl_buffer_atr_ratio: float = 0.3
+    tp1_rr: float = 1.2
+    tp2_rr: float = 2.0
+    tp3_rr: float = 3.5
     ema_short: int = 8
     ema_long: int = 21
 
