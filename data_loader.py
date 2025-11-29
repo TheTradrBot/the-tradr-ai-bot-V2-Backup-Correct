@@ -85,8 +85,13 @@ def denormalize_asset_name(asset: str) -> str:
     return all_maps.get(asset_upper, asset)
 
 
-def find_csv_file(asset: str) -> Optional[Path]:
-    """Find CSV file for an asset in the data directory."""
+def find_csv_file(asset: str, prefer_hourly: bool = True) -> Optional[Path]:
+    """Find CSV file for an asset in the data directory.
+    
+    Args:
+        asset: Asset name (e.g., EUR_USD)
+        prefer_hourly: If True, prefer 1H files over daily files
+    """
     if not DATA_DIR.exists():
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         return None
@@ -94,13 +99,21 @@ def find_csv_file(asset: str) -> Optional[Path]:
     normalized = normalize_asset_name(asset)
     oanda_format = denormalize_asset_name(asset)
     
-    possible_names = [
+    possible_names = []
+    
+    if prefer_hourly:
+        possible_names.extend([
+            f"{oanda_format}_1H.csv",
+            f"{normalized}_1H.csv",
+        ])
+    
+    possible_names.extend([
         f"{normalized}.csv",
         f"{oanda_format}.csv",
         f"{normalized.lower()}.csv",
         f"{asset}.csv",
         f"{asset.lower()}.csv",
-    ]
+    ])
     
     for name in possible_names:
         path = DATA_DIR / name

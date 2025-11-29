@@ -526,8 +526,14 @@ def find_structure_target(swing_highs: List[Dict], swing_lows: List[Dict], direc
 def load_candles_with_fallback(symbol: str, granularity: str = 'H4') -> List[Dict]:
     """Load candles from CSV if available, otherwise use OANDA API."""
     try:
-        from data_loader import load_ohlcv_from_csv, df_to_candle_list
+        from data_loader import load_ohlcv_from_csv, resample_to_timeframe, df_to_candle_list
         df = load_ohlcv_from_csv(symbol)
+        
+        if granularity != 'H1' and len(df) > 1000:
+            time_diff = (df.index[1] - df.index[0]).total_seconds() / 3600
+            if time_diff <= 1:
+                df = resample_to_timeframe(df, granularity)
+        
         candles = df_to_candle_list(df)
         for c in candles:
             if isinstance(c['time'], str):

@@ -8,3 +8,4 @@ discord.py
 pandas
 requests
 yfinance
+dukascopy-python
