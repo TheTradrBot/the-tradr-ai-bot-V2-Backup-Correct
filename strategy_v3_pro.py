@@ -1,12 +1,13 @@
 """
-Strategy V3 Pro: Daily Swing Trading with Golden Pocket + Wyckoff
+Strategy V3 Pro: Daily Swing Trading with Fibonacci + Weekly S/R
 
 Key Methods:
-- Golden Pocket entries (0.618-0.65 Fibonacci retracement) at Supply/Demand zones
-- Wyckoff Spring/Upthrust for reversal detection
-- Daily timeframe structure (no H4 BOS)
+- Optimal entry zone at 0.5-0.66 Fibonacci retracement (expanded from golden pocket)
+- Wyckoff Spring/Upthrust for reversal detection  
+- Break of Structure (BoS) confirmation
+- Weekly S/R levels as key confluence
 - Trade duration: 2-8 days
-- Structural Take Profits (swing highs/lows) - NO Fibonacci TPs
+- Fibonacci Extension Take Profits at -0.25, -0.68, -1.0 levels
 
 Constraints: NO RSI, NO MACD, NO SMC
 Target: 70%+ yearly return, pass 5%ers every month
@@ -101,28 +102,124 @@ def find_swing_points(candles: List[Dict], lookback: int = 3) -> Tuple[List[Tupl
     return swing_highs, swing_lows
 
 
-def calculate_golden_pocket(swing_high: float, swing_low: float, direction: str) -> Tuple[float, float]:
+def calculate_optimal_entry_zone(swing_high: float, swing_low: float, direction: str) -> Tuple[float, float]:
     """
-    Calculate Golden Pocket zone (61.8% - 65% retracement).
-    For bullish: measure from swing low to swing high
-    For bearish: measure from swing high to swing low
+    Calculate Optimal Entry Zone (50% - 66% Fibonacci retracement).
+    This wider zone matches the TradingView approach for better entries.
+    For bullish: measure retracement from swing high back toward swing low
+    For bearish: measure retracement from swing low back toward swing high
     """
     range_size = swing_high - swing_low
     
     if direction == 'long':
-        gp_high = swing_high - (range_size * 0.618)
-        gp_low = swing_high - (range_size * 0.65)
+        zone_high = swing_high - (range_size * 0.5)
+        zone_low = swing_high - (range_size * 0.66)
     else:
-        gp_low = swing_low + (range_size * 0.618)
-        gp_high = swing_low + (range_size * 0.65)
+        zone_low = swing_low + (range_size * 0.5)
+        zone_high = swing_low + (range_size * 0.66)
     
-    return min(gp_high, gp_low), max(gp_high, gp_low)
+    return min(zone_high, zone_low), max(zone_high, zone_low)
+
+
+def calculate_fib_extension_tps(swing_high: float, swing_low: float, direction: str) -> Tuple[float, float, float]:
+    """
+    Calculate Fibonacci Extension Take Profit levels at -0.25, -0.68, -1.0.
+    These are extension levels beyond the swing range.
+    """
+    range_size = swing_high - swing_low
+    
+    if direction == 'long':
+        tp1 = swing_high + (range_size * 0.25)
+        tp2 = swing_high + (range_size * 0.68)
+        tp3 = swing_high + (range_size * 1.0)
+    else:
+        tp1 = swing_low - (range_size * 0.25)
+        tp2 = swing_low - (range_size * 0.68)
+        tp3 = swing_low - (range_size * 1.0)
+    
+    return tp1, tp2, tp3
+
+
+def detect_break_of_structure(candles: List[Dict], direction: str, lookback: int = 20) -> Tuple[bool, float]:
+    """
+    Detect Break of Structure (BoS) - when price breaks a significant swing point.
+    Returns (bos_detected, bos_level).
+    """
+    if len(candles) < lookback + 5:
+        return False, 0.0
+    
+    recent = candles[-lookback:]
+    swing_highs, swing_lows = find_swing_points(recent, lookback=2)
+    
+    if len(swing_highs) < 2 or len(swing_lows) < 2:
+        return False, 0.0
+    
+    current_close = candles[-1]['close']
+    current_high = candles[-1]['high']
+    current_low = candles[-1]['low']
+    
+    if direction == 'long':
+        last_significant_high = swing_highs[-2][1] if len(swing_highs) >= 2 else swing_highs[-1][1]
+        if current_close > last_significant_high or current_high > last_significant_high:
+            return True, last_significant_high
+    else:
+        last_significant_low = swing_lows[-2][1] if len(swing_lows) >= 2 else swing_lows[-1][1]
+        if current_close < last_significant_low or current_low < last_significant_low:
+            return True, last_significant_low
+    
+    return False, 0.0
+
+
+def find_weekly_sr_levels(weekly_candles: List[Dict], lookback: int = 12) -> List[Dict]:
+    """
+    Find Weekly Support/Resistance levels from weekly candle data.
+    Returns list of S/R levels with type and price.
+    """
+    if len(weekly_candles) < lookback:
+        return []
+    
+    recent = weekly_candles[-lookback:]
+    swing_highs, swing_lows = find_swing_points(recent, lookback=2)
+    
+    sr_levels = []
+    
+    for idx, price in swing_highs:
+        sr_levels.append({
+            'type': 'resistance',
+            'price': price,
+            'bar_idx': idx
+        })
+    
+    for idx, price in swing_lows:
+        sr_levels.append({
+            'type': 'support', 
+            'price': price,
+            'bar_idx': idx
+        })
+    
+    sr_levels.sort(key=lambda x: x['price'], reverse=True)
+    
+    return sr_levels
+
+
+def price_near_weekly_sr(price: float, sr_levels: List[Dict], atr: float, buffer_mult: float = 0.5) -> Tuple[bool, str]:
+    """
+    Check if price is near a weekly S/R level.
+    Returns (is_near, sr_type).
+    """
+    buffer = atr * buffer_mult
+    
+    for sr in sr_levels:
+        if abs(price - sr['price']) <= buffer:
+            return True, sr['type']
+    
+    return False, ''
 
 
 def identify_supply_demand_zones(candles: List[Dict], atr: float) -> List[SwingZone]:
     """
     Identify Supply and Demand zones based on price structure.
-    Uses significant swing points and calculates Golden Pocket levels.
+    Uses significant swing points and calculates Optimal Entry Zone (0.5-0.66 Fib).
     """
     if len(candles) < 30:
         return []
@@ -140,7 +237,7 @@ def identify_supply_demand_zones(candles: List[Dict], atr: float) -> List[SwingZ
             if high_idx > low_idx:
                 range_size = high_price - low_price
                 if range_size > atr * 2:
-                    gp_low, gp_high = calculate_golden_pocket(high_price, low_price, 'long')
+                    oez_low, oez_high = calculate_optimal_entry_zone(high_price, low_price, 'long')
                     
                     zone_low = low_price
                     zone_high = low_price + (atr * 0.5)
@@ -153,8 +250,8 @@ def identify_supply_demand_zones(candles: List[Dict], atr: float) -> List[SwingZ
                         low=zone_low,
                         swing_high=high_price,
                         swing_low=low_price,
-                        golden_pocket_high=gp_high,
-                        golden_pocket_low=gp_low,
+                        golden_pocket_high=oez_high,
+                        golden_pocket_low=oez_low,
                         strength=strength,
                         created_bar=low_idx,
                         is_fresh=True
@@ -170,7 +267,7 @@ def identify_supply_demand_zones(candles: List[Dict], atr: float) -> List[SwingZ
             if low_idx > high_idx:
                 range_size = high_price - low_price
                 if range_size > atr * 2:
-                    gp_low, gp_high = calculate_golden_pocket(high_price, low_price, 'short')
+                    oez_low, oez_high = calculate_optimal_entry_zone(high_price, low_price, 'short')
                     
                     zone_low = high_price - (atr * 0.5)
                     zone_high = high_price
@@ -183,8 +280,8 @@ def identify_supply_demand_zones(candles: List[Dict], atr: float) -> List[SwingZ
                         low=zone_low,
                         swing_high=high_price,
                         swing_low=low_price,
-                        golden_pocket_high=gp_high,
-                        golden_pocket_low=gp_low,
+                        golden_pocket_high=oez_high,
+                        golden_pocket_low=oez_low,
                         strength=strength,
                         created_bar=high_idx,
                         is_fresh=True
@@ -270,8 +367,8 @@ def detect_wyckoff_upthrust(candles: List[Dict], zone: SwingZone, atr: float, lo
     return False
 
 
-def price_in_golden_pocket(price: float, zone: SwingZone, direction: str) -> bool:
-    """Check if price is within the Golden Pocket zone."""
+def price_in_optimal_zone(price: float, zone: SwingZone, direction: str) -> bool:
+    """Check if price is within the Optimal Entry Zone (0.5-0.66 Fib)."""
     return zone.golden_pocket_low <= price <= zone.golden_pocket_high
 
 
@@ -281,26 +378,35 @@ def price_at_zone(price: float, zone: SwingZone, atr: float) -> bool:
     return (zone.low - buffer) <= price <= (zone.high + buffer)
 
 
-def find_structural_tp(candles: List[Dict], entry: float, stop_loss: float, direction: str, min_rr: float = 2.5) -> Optional[float]:
+def find_fib_extension_tp(zone: SwingZone, entry: float, stop_loss: float, direction: str, min_rr: float = 2.5) -> Optional[Tuple[float, float, float]]:
     """
-    Find structural take profit at swing high/low.
-    NO Fibonacci for TPs - pure price structure.
+    Find Fibonacci Extension Take Profit levels.
+    Uses -0.25, -0.68, -1.0 extension levels from the swing range.
+    Returns (tp1, tp2, tp3) or None if min_rr not met.
     """
-    risk = abs(entry - stop_loss)
-    min_reward = risk * min_rr
+    tp1, tp2, tp3 = calculate_fib_extension_tps(zone.swing_high, zone.swing_low, direction)
     
-    swing_highs, swing_lows = find_swing_points(candles, lookback=5)
+    risk = abs(entry - stop_loss)
+    if risk == 0:
+        return None
     
     if direction == 'long':
-        valid_tps = [h for _, h in swing_highs if h > entry + min_reward]
-        if valid_tps:
-            return min(valid_tps)
-        return entry + min_reward
+        tp1_rr = (tp1 - entry) / risk
+        tp2_rr = (tp2 - entry) / risk
+        tp3_rr = (tp3 - entry) / risk
     else:
-        valid_tps = [l for _, l in swing_lows if l < entry - min_reward]
-        if valid_tps:
-            return max(valid_tps)
-        return entry - min_reward
+        tp1_rr = (entry - tp1) / risk
+        tp2_rr = (entry - tp2) / risk
+        tp3_rr = (entry - tp3) / risk
+    
+    if tp1_rr >= min_rr:
+        return tp1, tp2, tp3
+    elif tp2_rr >= min_rr:
+        return tp2, tp3, tp3
+    elif tp3_rr >= min_rr:
+        return tp3, tp3, tp3
+    
+    return None
 
 
 def detect_daily_trend(candles: List[Dict], lookback: int = 20) -> str:
@@ -425,24 +531,24 @@ def generate_v3_pro_signal(
     daily_candles: List[Dict],
     weekly_candles: List[Dict],
     min_rr: float = 2.5,
-    min_confluence: int = 4
+    min_confluence: int = 3
 ) -> Optional[TradeSignal]:
     """
-    Generate V3 Pro trading signal - STRICT CRITERIA VERSION.
+    Generate V3 Pro trading signal - FIBONACCI + WEEKLY S/R VERSION.
     
     Entry Types:
-    1. Golden Pocket: Entry when price retraces to 0.618-0.65 at fresh zone WITH confirmation
+    1. Optimal Zone: Entry when price retraces to 0.5-0.66 Fib at fresh zone
     2. Wyckoff Spring: Entry after spring pattern at demand zone
     3. Wyckoff Upthrust: Entry after upthrust pattern at supply zone
     4. Zone Rejection: Entry on rejection candle at zone
     
-    STRICT Requirements:
-    - Weekly zones preferred (daily only with high confluence)
-    - Daily trend MUST be aligned
-    - Momentum aligned (recent bars confirm direction)
-    - Fresh zone (first retest)
-    - Strong impulse away from zone originally
-    - Confluence score >= 4
+    Key Features:
+    - Optimal Entry Zone: 0.5-0.66 Fib retracement (wider than golden pocket)
+    - Weekly S/R levels as confluence
+    - Break of Structure (BoS) confirmation
+    - Stop Loss at 1.0 Fib level (swing high/low with buffer)
+    - Fibonacci Extension TPs at -0.25, -0.68, -1.0
+    - Confluence score >= 3
     - Minimum R:R of 2.5:1
     - Target hold: 2-8 days
     """
@@ -461,8 +567,7 @@ def generate_v3_pro_signal(
     
     daily_trend = detect_daily_trend(daily_candles, 20)
     
-    if daily_trend == 'neutral':
-        return None
+    weekly_sr_levels = find_weekly_sr_levels(weekly_candles, lookback=12)
     
     daily_zones = identify_supply_demand_zones(daily_candles, daily_atr)
     weekly_zones = identify_supply_demand_zones(weekly_candles, weekly_atr)
@@ -472,7 +577,7 @@ def generate_v3_pro_signal(
         z.strength += 2
         all_zones.append(('weekly', z))
     for z in daily_zones:
-        if z.strength >= 2:
+        if z.strength >= 1:
             all_zones.append(('daily', z))
     
     for timeframe, zone in all_zones:
@@ -481,30 +586,40 @@ def generate_v3_pro_signal(
         
         if zone.zone_type == 'demand':
             direction = 'long'
-            if daily_trend == 'bearish':
-                continue
         else:
             direction = 'short'
-            if daily_trend == 'bullish':
-                continue
         
         confluence = 0
         reasoning_parts = []
         entry_type = None
         
         at_zone = price_at_zone(current_price, zone, daily_atr)
-        in_gp = price_in_golden_pocket(current_price, zone, direction)
+        in_oez = price_in_optimal_zone(current_price, zone, direction)
         
-        if not at_zone and not in_gp:
+        if not at_zone and not in_oez:
             continue
         
-        if in_gp:
+        if in_oez:
             confluence += 2
-            reasoning_parts.append("Price in Golden Pocket (0.618-0.65)")
-            entry_type = 'golden_pocket'
+            reasoning_parts.append("Price in Optimal Entry Zone (0.5-0.66 Fib)")
+            entry_type = 'optimal_zone'
         elif at_zone:
             confluence += 1
             reasoning_parts.append(f"Price at {zone.zone_type} zone")
+        
+        bos_detected, bos_level = detect_break_of_structure(daily_candles, direction, 20)
+        if bos_detected:
+            confluence += 2
+            reasoning_parts.append(f"Break of Structure at {bos_level:.5f}")
+            if entry_type is None:
+                entry_type = 'bos_entry'
+        
+        near_weekly_sr, sr_type = price_near_weekly_sr(current_price, weekly_sr_levels, daily_atr)
+        if near_weekly_sr:
+            if (direction == 'long' and sr_type == 'support') or \
+               (direction == 'short' and sr_type == 'resistance'):
+                confluence += 2
+                reasoning_parts.append(f"Near Weekly {sr_type.upper()}")
         
         if direction == 'long' and detect_wyckoff_spring(daily_candles, zone, daily_atr):
             confluence += 2
@@ -552,12 +667,13 @@ def generate_v3_pro_signal(
             continue
         
         has_confirmation = (
-            entry_type in ['wyckoff_spring', 'wyckoff_upthrust'] or
+            entry_type in ['wyckoff_spring', 'wyckoff_upthrust', 'bos_entry'] or
             check_rejection_candle(daily_candles, zone, direction) or
-            check_engulfing_candle(daily_candles, direction)
+            check_engulfing_candle(daily_candles, direction) or
+            bos_detected
         )
         
-        if not has_confirmation and entry_type == 'golden_pocket':
+        if not has_confirmation and entry_type == 'optimal_zone':
             continue
         
         if entry_type is None:
@@ -565,19 +681,19 @@ def generate_v3_pro_signal(
         
         entry = current_price
         
-        min_sl_distance = daily_atr * 0.75
+        sl_buffer = daily_atr * 0.2
         
         if direction == 'long':
-            raw_sl = zone.low - (daily_atr * 0.3)
-            stop_loss = min(raw_sl, entry - min_sl_distance)
+            stop_loss = zone.swing_low - sl_buffer
         else:
-            raw_sl = zone.high + (daily_atr * 0.3)
-            stop_loss = max(raw_sl, entry + min_sl_distance)
+            stop_loss = zone.swing_high + sl_buffer
         
-        take_profit = find_structural_tp(daily_candles, entry, stop_loss, direction, min_rr)
+        fib_tps = find_fib_extension_tp(zone, entry, stop_loss, direction, min_rr)
         
-        if take_profit is None:
+        if fib_tps is None:
             continue
+        
+        take_profit = fib_tps[0]
         
         risk = abs(entry - stop_loss)
         reward = abs(take_profit - entry)
@@ -622,6 +738,15 @@ def generate_v3_pro_signal(
     return None
 
 
+def format_time(time_val) -> str:
+    """Convert time value to string format YYYY-MM-DD."""
+    if isinstance(time_val, str):
+        return time_val[:10]
+    elif hasattr(time_val, 'strftime'):
+        return time_val.strftime('%Y-%m-%d')
+    return str(time_val)[:10]
+
+
 def backtest_v3_pro(
     daily_candles: List[Dict],
     weekly_candles: List[Dict],
@@ -663,7 +788,7 @@ def backtest_v3_pro(
             continue
         
         current_bar = daily_candles[i]
-        current_date = current_bar['time'][:10]
+        current_date = format_time(current_bar['time'])
         
         if current_date not in daily_trade_count:
             daily_trade_count[current_date] = 0
@@ -793,7 +918,7 @@ def backtest_v3_pro(
                 r_multiple = (partial_pnl * 0.5) + (remaining_pnl * 0.5)
                 pnl_usd = r_multiple * risk_per_trade
                 
-                partial_date = daily_candles[partial_exit_bar]['time'][:10] if partial_exit_bar else None
+                partial_date = format_time(daily_candles[partial_exit_bar]['time']) if partial_exit_bar else None
                 
                 if partial_pnl >= partial_tp_r * 0.9:
                     trades.append({
