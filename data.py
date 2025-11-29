@@ -34,6 +34,8 @@ def get_ohlcv(
     timeframe: str = "D",
     count: int = 200,
     use_cache: bool = True,
+    from_date: str = None,
+    to_date: str = None,
 ) -> List[Dict[str, Any]]:
     """
     Fetch OHLCV candles from OANDA for a given instrument and timeframe.
@@ -41,15 +43,18 @@ def get_ohlcv(
     Args:
         instrument: OANDA instrument name (e.g. EUR_USD)
         timeframe: Candle timeframe - "D", "H4", "W", "M"
-        count: Number of candles to fetch
+        count: Number of candles to fetch (max 5000)
         use_cache: Whether to use caching (default True)
+        from_date: Start date in RFC3339 format (e.g. "2023-01-01T00:00:00Z")
+        to_date: End date in RFC3339 format (e.g. "2024-07-31T00:00:00Z")
 
     Returns:
         List of candle dicts with keys: time, open, high, low, close, volume
     """
     cache = get_cache()
     
-    if use_cache:
+    cache_key_suffix = f"_{from_date}_{to_date}" if from_date else ""
+    if use_cache and not from_date:
         cached = cache.get(instrument, timeframe, count)
         if cached is not None:
             return cached
@@ -64,12 +69,17 @@ def get_ohlcv(
 
     params = {
         "granularity": granularity,
-        "count": count,
         "price": "M",
     }
+    
+    if from_date and to_date:
+        params["from"] = from_date
+        params["to"] = to_date
+    else:
+        params["count"] = min(count, 5000)
 
     try:
-        resp = requests.get(url, headers=headers, params=params, timeout=15)
+        resp = requests.get(url, headers=headers, params=params, timeout=30)
     except requests.exceptions.RequestException as e:
         print(f"[data.get_ohlcv] Network error for {instrument}, {timeframe}: {e}")
         return []
@@ -98,9 +108,52 @@ def get_ohlcv(
             "volume": float(c.get("volume", 0)),
         })
 
-    if use_cache and candles:
+    if use_cache and candles and not from_date:
         cache.set(instrument, timeframe, count, candles)
 
+    return candles
+
+
+def get_ohlcv_range(
+    instrument: str,
+    timeframe: str,
+    start_year: int,
+    start_month: int,
+    end_year: int,
+    end_month: int,
+) -> List[Dict[str, Any]]:
+    """
+    Fetch OHLCV candles for a specific date range.
+    
+    Args:
+        instrument: OANDA instrument name (e.g. USD_JPY)
+        timeframe: "D" for daily, "W" for weekly
+        start_year: Start year (e.g. 2023)
+        start_month: Start month (1-12)
+        end_year: End year (e.g. 2024)
+        end_month: End month (1-12)
+    
+    Returns:
+        List of candle dicts
+    """
+    from_date = f"{start_year}-{start_month:02d}-01T00:00:00Z"
+    
+    import calendar
+    last_day = calendar.monthrange(end_year, end_month)[1]
+    to_date = f"{end_year}-{end_month:02d}-{last_day}T23:59:59Z"
+    
+    print(f"[data] Fetching {instrument} {timeframe} from {from_date[:10]} to {to_date[:10]}...")
+    
+    candles = get_ohlcv(
+        instrument=instrument,
+        timeframe=timeframe,
+        count=5000,
+        use_cache=False,
+        from_date=from_date,
+        to_date=to_date
+    )
+    
+    print(f"[data] Got {len(candles)} candles")
     return candles
 
 

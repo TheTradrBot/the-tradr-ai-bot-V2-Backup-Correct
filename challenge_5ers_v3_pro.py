@@ -10,7 +10,7 @@ Target: 70%+ yearly return per asset, pass both steps every month
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 import calendar
-from data import get_ohlcv
+from data import get_ohlcv, get_ohlcv_range
 from strategy_v3_pro import backtest_v3_pro, calculate_backtest_stats
 from challenge_simulator import simulate_challenge
 
@@ -77,6 +77,150 @@ def fetch_data_for_v3_pro(symbol: str) -> tuple:
         })
     
     return daily_list, weekly_list
+
+
+def fetch_data_for_date_range(
+    symbol: str,
+    start_year: int,
+    start_month: int,
+    end_year: int,
+    end_month: int
+) -> tuple:
+    """
+    Fetch Daily and Weekly data for a specific date range.
+    
+    This function fetches historical data including a warmup period
+    (60 days before start date for indicator calculations).
+    """
+    warmup_start_year = start_year
+    warmup_start_month = start_month - 3
+    if warmup_start_month < 1:
+        warmup_start_month += 12
+        warmup_start_year -= 1
+    
+    weekly_start_year = start_year - 1
+    weekly_start_month = start_month
+    
+    daily_candles = get_ohlcv_range(
+        instrument=symbol,
+        timeframe="D",
+        start_year=warmup_start_year,
+        start_month=warmup_start_month,
+        end_year=end_year,
+        end_month=end_month
+    )
+    
+    weekly_candles = get_ohlcv_range(
+        instrument=symbol,
+        timeframe="W",
+        start_year=weekly_start_year,
+        start_month=weekly_start_month,
+        end_year=end_year,
+        end_month=end_month
+    )
+    
+    daily_list = []
+    for c in daily_candles:
+        daily_list.append({
+            'time': c['time'].strftime("%Y-%m-%dT%H:%M:%S") if hasattr(c['time'], 'strftime') else str(c['time']),
+            'open': c['open'],
+            'high': c['high'],
+            'low': c['low'],
+            'close': c['close'],
+            'volume': c.get('volume', 0)
+        })
+    
+    weekly_list = []
+    for c in weekly_candles:
+        weekly_list.append({
+            'time': c['time'].strftime("%Y-%m-%dT%H:%M:%S") if hasattr(c['time'], 'strftime') else str(c['time']),
+            'open': c['open'],
+            'high': c['high'],
+            'low': c['low'],
+            'close': c['close'],
+            'volume': c.get('volume', 0)
+        })
+    
+    return daily_list, weekly_list
+
+
+def run_backtest_date_range(
+    symbol: str,
+    start_year: int,
+    start_month: int,
+    end_year: int,
+    end_month: int,
+    min_rr: float = None,
+    min_confluence: int = None,
+    risk_per_trade: float = 250.0,
+    partial_tp: bool = True,
+    partial_tp_r: float = 1.5
+) -> Dict:
+    """
+    Run V3 Pro backtest for a specific date range (e.g., Jan 2023 - Jul 2024).
+    
+    This fetches historical data from OANDA for the specified period.
+    """
+    try:
+        if symbol in AGGRESSIVE_ASSET_CONFIGS:
+            config = AGGRESSIVE_ASSET_CONFIGS[symbol]
+            if min_rr is None:
+                min_rr = config['rr']
+            if min_confluence is None:
+                min_confluence = config['conf']
+        else:
+            if min_rr is None:
+                min_rr = 1.5
+            if min_confluence is None:
+                min_confluence = 2
+        
+        print(f"[backtest] Running {symbol} from {start_year}-{start_month:02d} to {end_year}-{end_month:02d}")
+        
+        daily_candles, weekly_candles = fetch_data_for_date_range(
+            symbol, start_year, start_month, end_year, end_month
+        )
+        
+        if len(daily_candles) < 100:
+            return {'error': f'Insufficient data: only {len(daily_candles)} daily candles fetched. Need at least 100.'}
+        
+        if len(weekly_candles) < 20:
+            return {'error': f'Insufficient weekly data: only {len(weekly_candles)} weekly candles fetched.'}
+        
+        print(f"[backtest] Data loaded: {len(daily_candles)} daily, {len(weekly_candles)} weekly candles")
+        
+        trades = backtest_v3_pro(
+            daily_candles=daily_candles,
+            weekly_candles=weekly_candles,
+            min_rr=min_rr,
+            min_confluence=min_confluence,
+            risk_per_trade=risk_per_trade,
+            partial_tp=partial_tp,
+            partial_tp_r=partial_tp_r
+        )
+        
+        range_start = f"{start_year}-{start_month:02d}"
+        range_end = f"{end_year}-{end_month:02d}"
+        filtered_trades = []
+        for t in trades:
+            entry_time = t.get('entry_time', '')[:7]
+            if range_start <= entry_time <= range_end:
+                filtered_trades.append(t)
+        
+        stats = calculate_backtest_stats(filtered_trades)
+        
+        print(f"[backtest] Completed: {len(filtered_trades)} trades in range")
+        
+        return {
+            'symbol': symbol,
+            'start': f"{start_year}-{start_month:02d}",
+            'end': f"{end_year}-{end_month:02d}",
+            'trades': filtered_trades,
+            'stats': stats
+        }
+    
+    except Exception as e:
+        import traceback
+        return {'error': f'{str(e)}\n{traceback.format_exc()}'}
 
 
 def run_v3_pro_backtest_for_asset(
