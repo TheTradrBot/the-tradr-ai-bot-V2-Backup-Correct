@@ -607,6 +607,7 @@ async def backtest_cmd(interaction: discord.Interaction, asset: str, date_range:
         
         trades = result.get('trades', [])
         total_r = sum(t.get('r_multiple', 0) for t in trades)
+        total_profit = sum(t.get('pnl_usd', 0) for t in trades)
         wins = sum(1 for t in trades if t.get('result') in ['WIN', 'PARTIAL_WIN'])
         losses = sum(1 for t in trades if t.get('result') == 'LOSS')
         be = sum(1 for t in trades if t.get('result') == 'BE')
@@ -619,7 +620,8 @@ async def backtest_cmd(interaction: discord.Interaction, asset: str, date_range:
             f"Total Trades: {len(trades)}\n"
             f"Wins: {wins} | Losses: {losses} | BE: {be}\n"
             f"Win Rate: {win_rate:.1f}%\n"
-            f"Total R: {total_r:+.1f}R\n\n"
+            f"Total R: {total_r:+.1f}R\n"
+            f"Total Profit: ${total_profit:+,.0f}\n\n"
             f"Strategy: V3 Pro - Daily S/D + Golden Pocket + Wyckoff"
         )
         
