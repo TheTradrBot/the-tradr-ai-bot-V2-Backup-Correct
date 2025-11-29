@@ -20,14 +20,15 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 - **Minimum Profitable Days**: 3 days required per step
 - **Maximum Trades Per Day**: 12
 
-**Dynamic Risk Management (Optimized with Concurrent Exposure Tracking):**
-- **Base Risk**: 3.0% ($300/trade) when account is healthy
-- **Reduced Risk**: 1.5% ($150/trade) at 2.5%+ drawdown
-- **Minimum Risk**: 0.5% ($50/trade) at 5%+ drawdown
-- **Max Total Exposure**: 7% (ensures multiple SLs can't breach 10% DD)
-- **Daily Loss Limit**: 4% internal cap (safety buffer under 5% rule)
-- **Fees**: 0.1% per trade deducted from P/L
+**Dynamic Risk Management (SAFE MODE - Updated Nov 2025):**
+- **Base Risk**: 2.0% ($200/trade) when account is healthy
+- **Reduced Risk**: 1.0% ($100/trade) at 2%+ drawdown
+- **Minimum Risk**: 0.5% ($50/trade) at 4%+ drawdown
+- **Max Total Exposure**: 4% (CRITICAL: ensures ALL concurrent SLs can't breach 5% daily DD)
+- **Daily Loss Limit**: 5% (matches 5%ers rule)
+- **Commissions**: 0.30% round-trip (0.15% entry + 0.15% exit) deducted from P/L
 - When trades hit TP1, SL moves to BE reducing effective risk to ~30%
+- **Safety Guarantee**: Even if ALL open trades hit SL simultaneously, max loss = 4% (under 5% daily limit)
 
 ## CURRENT LIVE STRATEGY: V3 Pro (November 2025)
 
@@ -88,13 +89,13 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
 
 ## MONTHLY PASS RATE REALITY
 
-**Optimization Results (November 2025):**
-- Achieved **90% monthly pass rate** (9/10 months) with all-forex + crypto portfolio
+**Optimization Results (November 2025 - SAFE MODE):**
+- Uses **4% max total exposure** to ensure account NEVER breaches
 - Uses **concurrent exposure tracking** to prevent multiple SL breach
-- V3 Pro optimized: Dynamic risk (3.0/1.5/0.5%) + 7% max exposure + partial TP at 1.5R
-- Only 1 failing month: March (0 profitable days, but still passed Step 1)
-- **All 13 assets (9 Forex + 4 Crypto) meet 50+ trades/year AND positive P/L requirements**
-- **Portfolio approach achieves 862% challenge return with ZERO breaches**
+- V3 Pro optimized: Dynamic risk (2.0/1.0/0.5%) + 4% max exposure + partial TP at 1.0R
+- **Commissions included**: 0.30% round-trip deducted from all trades
+- **Safety First**: Even worst-case (all trades hit SL) = 4% loss (under 5% daily limit)
+- Portfolio approach with multiple assets recommended for meeting "3 profitable days" requirement
 
 ## KEY FILES
 

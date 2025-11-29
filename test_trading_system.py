@@ -117,9 +117,9 @@ def test_strategy_functions():
 
 
 def test_dynamic_risk_management():
-    """Test 2: Dynamic Risk Management (3.0%/1.5%/0.5%)"""
+    """Test 2: Dynamic Risk Management (2.0%/1.0%/0.5%) with 4% Max Exposure"""
     print("\n" + "="*70)
-    print("TEST 2: DYNAMIC RISK MANAGEMENT")
+    print("TEST 2: DYNAMIC RISK MANAGEMENT (SAFE MODE)")
     print("="*70)
     
     config = RiskConfig()
@@ -131,11 +131,14 @@ def test_dynamic_risk_management():
     print(f"  DD Threshold for Reduction: {config.dd_threshold_for_reduction}%")
     print(f"  DD Threshold for Minimum: {config.dd_threshold_for_min}%")
     print(f"  Max Total Exposure: {config.max_total_exposure_pct}%")
+    print(f"  Round-Trip Commission: {config.round_trip_fee_pct}%")
     
-    assert config.base_risk_pct == 3.0, f"Base risk should be 3.0%, got {config.base_risk_pct}%"
-    assert config.reduced_risk_pct == 1.5, f"Reduced risk should be 1.5%, got {config.reduced_risk_pct}%"
+    assert config.base_risk_pct == 2.0, f"Base risk should be 2.0%, got {config.base_risk_pct}%"
+    assert config.reduced_risk_pct == 1.0, f"Reduced risk should be 1.0%, got {config.reduced_risk_pct}%"
     assert config.min_risk_pct == 0.5, f"Min risk should be 0.5%, got {config.min_risk_pct}%"
-    print("  PASS: Risk percentages are 3.0% / 1.5% / 0.5%")
+    assert config.max_total_exposure_pct == 4.0, f"Max exposure should be 4.0%, got {config.max_total_exposure_pct}%"
+    assert config.round_trip_fee_pct == 0.30, f"Round-trip fee should be 0.30%, got {config.round_trip_fee_pct}%"
+    print("  PASS: Risk percentages are 2.0% / 1.0% / 0.5% with 4% max exposure")
     
     print("\n[TEST] Base Risk Scenario (0% drawdown)...")
     starting_balance = 10000
@@ -149,41 +152,53 @@ def test_dynamic_risk_management():
     print(f"  Risk USD: ${risk_usd:.2f} (Expected: ${expected_base_risk:.2f})")
     assert risk_usd == expected_base_risk, f"Expected base risk ${expected_base_risk}, got ${risk_usd}"
     assert reason == "BASE_RISK", f"Expected BASE_RISK reason, got {reason}"
-    print("  PASS: Base risk (3.0%) applied correctly at 0% DD")
+    print("  PASS: Base risk (2.0%) applied correctly at 0% DD")
     
-    print("\n[TEST] Reduced Risk Scenario (3% drawdown)...")
-    balance = 9700
-    prev_day_balance = 9700
+    print("\n[TEST] Reduced Risk Scenario (2.5% drawdown)...")
+    balance = 9750
+    prev_day_balance = 9750
     risk_usd, reason = calculate_smart_risk(balance, starting_balance, prev_day_balance, open_exposure, config)
     expected_reduced_risk = starting_balance * (config.reduced_risk_pct / 100)
-    print(f"  Balance: ${balance} (3% DD), Reason: {reason}")
+    print(f"  Balance: ${balance} (2.5% DD), Reason: {reason}")
     print(f"  Risk USD: ${risk_usd:.2f} (Expected: ${expected_reduced_risk:.2f})")
     assert risk_usd == expected_reduced_risk, f"Expected reduced risk ${expected_reduced_risk}, got ${risk_usd}"
     assert reason == "REDUCED_RISK_IN_DD", f"Expected REDUCED_RISK_IN_DD reason, got {reason}"
-    print("  PASS: Reduced risk (1.5%) applied correctly at 3% DD")
+    print("  PASS: Reduced risk (1.0%) applied correctly at 2.5% DD")
     
-    print("\n[TEST] Minimum Risk Scenario (6% drawdown)...")
-    balance = 9400
-    prev_day_balance = 9400
+    print("\n[TEST] Minimum Risk Scenario (5% drawdown)...")
+    balance = 9500
+    prev_day_balance = 9500
     risk_usd, reason = calculate_smart_risk(balance, starting_balance, prev_day_balance, open_exposure, config)
     expected_min_risk = starting_balance * (config.min_risk_pct / 100)
-    print(f"  Balance: ${balance} (6% DD), Reason: {reason}")
+    print(f"  Balance: ${balance} (5% DD), Reason: {reason}")
     print(f"  Risk USD: ${risk_usd:.2f} (Expected: ${expected_min_risk:.2f})")
     assert risk_usd == expected_min_risk, f"Expected min risk ${expected_min_risk}, got ${risk_usd}"
     assert reason == "MIN_RISK_DEEP_DD", f"Expected MIN_RISK_DEEP_DD reason, got {reason}"
-    print("  PASS: Minimum risk (0.5%) applied correctly at 6% DD")
+    print("  PASS: Minimum risk (0.5%) applied correctly at 5% DD")
     
-    print("\n[TEST] Exposure Cap Scenario...")
+    print("\n[TEST] Max 4% Exposure Cap Scenario...")
     balance = 10000
-    open_exposure = 600
+    prev_day_balance = 10000
+    open_exposure = 300
     risk_usd, reason = calculate_smart_risk(balance, starting_balance, prev_day_balance, open_exposure, config)
     max_exposure = starting_balance * (config.max_total_exposure_pct / 100)
     available = max_exposure - open_exposure
-    print(f"  Open Exposure: ${open_exposure}, Max: ${max_exposure}")
+    print(f"  Open Exposure: ${open_exposure}, Max Allowed: ${max_exposure}")
     print(f"  Available: ${available}, Risk Applied: ${risk_usd:.2f}")
     print(f"  Reason: {reason}")
     assert risk_usd <= available, f"Risk should not exceed available exposure"
-    print("  PASS: Exposure cap working correctly")
+    assert max_exposure == 400, f"Max exposure should be $400 (4% of $10K)"
+    print("  PASS: 4% exposure cap working correctly")
+    
+    print("\n[TEST] Multi-Trade Safety - All SLs Hit Scenario...")
+    open_exposure = 400
+    risk_usd, reason = calculate_smart_risk(balance, starting_balance, prev_day_balance, open_exposure, config)
+    print(f"  Open Exposure at 4% (max): ${open_exposure}")
+    print(f"  New Risk Allowed: ${risk_usd}")
+    print(f"  Reason: {reason}")
+    assert risk_usd == 0, "No new trades when at max 4% exposure"
+    assert reason == "MAX_EXPOSURE_REACHED", f"Expected MAX_EXPOSURE_REACHED, got {reason}"
+    print("  PASS: No new trades allowed at max exposure - account protected")
     
     print("\n[TEST] DD Limit Hit Scenario...")
     balance = 8900
@@ -195,6 +210,14 @@ def test_dynamic_risk_management():
     assert risk_usd == 0, "Risk should be 0 when DD limit hit"
     assert reason == "DD_LIMIT_HIT", f"Expected DD_LIMIT_HIT reason, got {reason}"
     print("  PASS: Trading stopped when DD limit hit")
+    
+    print("\n[TEST] Commission Deduction Verification...")
+    print(f"  Entry commission: {config.fee_per_trade_pct}%")
+    print(f"  Round-trip commission: {config.round_trip_fee_pct}%")
+    on_200_risk = 200 * (config.round_trip_fee_pct / 100)
+    print(f"  Commission on $200 risk trade: ${on_200_risk:.2f}")
+    assert config.round_trip_fee_pct == 0.30, "Round-trip fee should be 0.30%"
+    print("  PASS: Commissions properly configured")
     
     print("\n" + "-"*70)
     print("DYNAMIC RISK MANAGEMENT: ALL TESTS PASSED")
@@ -519,14 +542,15 @@ def test_profit_optimization():
     max_trades_at_base = config.max_total_exposure_pct / config.base_risk_pct
     print(f"  Max trades at base risk: {max_trades_at_base:.1f}")
     
-    assert config.max_total_exposure_pct < 10.0, "Max exposure should be under 10% (max DD limit)"
-    print("  PASS: Exposure limits configured safely")
+    assert config.max_total_exposure_pct == 4.0, "Max exposure should be 4.0%"
+    assert config.max_total_exposure_pct < 5.0, "Max exposure must be under 5% daily DD limit"
+    print("  PASS: 4% exposure limit - ensures multiple SLs can't breach daily DD")
     
     print("\n[TEST] Fee Deduction...")
-    print(f"  Fee per trade: {config.fee_per_trade_pct}%")
+    print(f"  Round-trip fee: {config.round_trip_fee_pct}%")
     
-    assert config.fee_per_trade_pct == 0.1, "Fee should be 0.1% per trade"
-    print("  PASS: Fee configuration correct")
+    assert config.round_trip_fee_pct == 0.30, "Round-trip fee should be 0.30%"
+    print("  PASS: Commission configuration correct (0.30% round-trip)")
     
     print("\n[TEST] Simulating Profit Optimization...")
     sample_trades = [

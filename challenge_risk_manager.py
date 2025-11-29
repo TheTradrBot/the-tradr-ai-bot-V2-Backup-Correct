@@ -1,17 +1,19 @@
 """
 5%ers Challenge Risk Manager
 
-Smart position sizing that:
-1. Trades ALL setups (user requirement)
-2. Uses higher base leverage (3-4%)
+SAFETY-FIRST position sizing that:
+1. Limits max total exposure to 4% (user requirement)
+2. Uses conservative base risk (2%) with dynamic reduction
 3. Reduces risk dynamically when in drawdown
 4. TRACKS CONCURRENT TRADES to prevent combined SL breach
-5. Moves SL to profit at TP1
+5. Moves SL to breakeven at TP1
+6. Includes commissions (0.30% round-trip)
 
-CRITICAL: Max combined exposure must stay under DD limits
-- If 3 trades open at 3% each = 9% exposure
-- All hitting SL = 9% loss (under 10% max DD)
-- Must cap new trades when exposure approaches limit
+CRITICAL SAFETY RULES:
+- Max combined exposure: 4% (provides buffer under 5% daily DD)
+- If ALL concurrent trades hit SL simultaneously = 4% max loss
+- This ensures account NEVER breaches daily DD limit
+- Commissions deducted from ALL trades (0.15% entry + 0.15% exit)
 """
 
 from typing import List, Dict, Tuple, Optional
@@ -22,25 +24,36 @@ from datetime import datetime
 
 @dataclass
 class RiskConfig:
-    """Risk management configuration."""
-    base_risk_pct: float = 3.0
-    reduced_risk_pct: float = 1.5
+    """Risk management configuration.
+    
+    CRITICAL SAFETY: max_total_exposure_pct = 4.0%
+    - If ALL concurrent trades hit SL simultaneously, max loss = 4%
+    - This provides 1% buffer under 5% daily DD limit
+    - Ensures account NEVER breaches even in worst-case scenario
+    
+    Commission handling:
+    - fee_per_trade_pct = 0.15% (spread + commission combined)
+    - Applied to BOTH entry AND exit (total ~0.3% round trip)
+    """
+    base_risk_pct: float = 2.0
+    reduced_risk_pct: float = 1.0
     min_risk_pct: float = 0.5
     
     max_dd_pct: float = 10.0
-    daily_dd_pct: float = 4.0
+    daily_dd_pct: float = 5.0
     
-    dd_threshold_for_reduction: float = 2.5
-    dd_threshold_for_min: float = 5.0
+    dd_threshold_for_reduction: float = 2.0
+    dd_threshold_for_min: float = 4.0
     
     partial_tp_r: float = 1.0
     partial_close_pct: float = 50.0
     sl_to_profit_buffer_r: float = 0.1
     
-    max_concurrent_trades: int = 3
-    max_total_exposure_pct: float = 7.0
+    max_concurrent_trades: int = 2
+    max_total_exposure_pct: float = 4.0
     
-    fee_per_trade_pct: float = 0.1
+    fee_per_trade_pct: float = 0.15
+    round_trip_fee_pct: float = 0.30
 
 
 @dataclass
@@ -200,7 +213,7 @@ def simulate_with_concurrent_tracking(
         
         trade_hits_tp1 = highest_r >= config.partial_tp_r
         
-        fee_usd = risk_usd * (config.fee_per_trade_pct / 100)
+        fee_usd = risk_usd * (config.round_trip_fee_pct / 100)
         
         if trade_hits_tp1 and result != 'LOSS':
             partial_profit = (risk_usd * config.partial_close_pct / 100) * config.partial_tp_r
@@ -375,13 +388,16 @@ def run_monthly_challenge_simulation(
 
 
 def find_optimal_config(all_trades: List[Dict]) -> Dict:
-    """Find optimal risk configuration by testing multiple settings."""
+    """Find optimal risk configuration by testing multiple settings.
+    
+    All configs use max 4% exposure to ensure safety.
+    """
     
     configs_to_test = [
-        RiskConfig(base_risk_pct=2.0, reduced_risk_pct=1.0, min_risk_pct=0.5, max_total_exposure_pct=6.0, daily_dd_pct=4.0),
-        RiskConfig(base_risk_pct=2.5, reduced_risk_pct=1.5, min_risk_pct=0.5, max_total_exposure_pct=6.0, daily_dd_pct=4.0),
-        RiskConfig(base_risk_pct=3.0, reduced_risk_pct=1.5, min_risk_pct=0.5, max_total_exposure_pct=7.0, daily_dd_pct=4.0),
-        RiskConfig(base_risk_pct=3.5, reduced_risk_pct=2.0, min_risk_pct=0.5, max_total_exposure_pct=7.0, daily_dd_pct=4.0),
+        RiskConfig(base_risk_pct=1.0, reduced_risk_pct=0.5, min_risk_pct=0.25, max_total_exposure_pct=3.0, daily_dd_pct=5.0),
+        RiskConfig(base_risk_pct=1.5, reduced_risk_pct=0.75, min_risk_pct=0.5, max_total_exposure_pct=3.5, daily_dd_pct=5.0),
+        RiskConfig(base_risk_pct=2.0, reduced_risk_pct=1.0, min_risk_pct=0.5, max_total_exposure_pct=4.0, daily_dd_pct=5.0),
+        RiskConfig(base_risk_pct=2.0, reduced_risk_pct=1.0, min_risk_pct=0.5, max_total_exposure_pct=4.0, daily_dd_pct=4.0),
     ]
     
     best_config = None
