@@ -245,8 +245,116 @@ def simulate_with_smart_risk(
     }
 
 
+def run_monthly_challenge_simulation(
+    all_trades: List[Dict],
+    config: RiskConfig = None,
+    year: int = 2024
+) -> Dict:
+    """
+    Run month-reset challenge simulation (fresh $10K each month).
+    
+    This is the CORRECT way to simulate prop firm challenges:
+    - Each month starts fresh with $10,000
+    - Each month is evaluated independently
+    - Aggregate results show yearly performance
+    """
+    if config is None:
+        config = RiskConfig()
+    
+    monthly_results = {}
+    months_passed = 0
+    months_blown = 0
+    total_pnl = 0
+    
+    for month in range(1, 13):
+        month_str = f"{year}-{month:02d}"
+        month_trades = [t for t in all_trades if t['entry_time'].startswith(month_str)]
+        
+        if not month_trades:
+            continue
+        
+        result = simulate_with_smart_risk(month_trades, config)
+        
+        passed = (
+            result['step1_passed'] and 
+            not result['blown'] and 
+            result['profitable_days'] >= 3
+        )
+        
+        if passed:
+            months_passed += 1
+        if result['blown']:
+            months_blown += 1
+        
+        total_pnl += result['total_pnl']
+        
+        monthly_results[month_str] = {
+            'trades_available': len(month_trades),
+            'trades_taken': result['total_trades'],
+            'skipped': result['skipped_trades'],
+            'pnl': result['total_pnl'],
+            'return_pct': result['total_return_pct'],
+            'profitable_days': result['profitable_days'],
+            'step1': result['step1_passed'],
+            'step2': result['step2_passed'],
+            'blown': result['blown'],
+            'passed': passed,
+        }
+    
+    total_months = len(monthly_results)
+    
+    return {
+        'year': year,
+        'total_months': total_months,
+        'months_passed': months_passed,
+        'months_blown': months_blown,
+        'pass_rate': (months_passed / total_months * 100) if total_months > 0 else 0,
+        'total_pnl': total_pnl,
+        'avg_monthly_pnl': total_pnl / total_months if total_months > 0 else 0,
+        'monthly_results': monthly_results,
+    }
+
+
+def find_optimal_config(all_trades: List[Dict]) -> Dict:
+    """Find optimal risk configuration by testing multiple settings."""
+    
+    configs_to_test = [
+        RiskConfig(base_risk_pct=2.5, reduced_risk_pct=1.5, min_risk_pct=1.0, dd_threshold_for_reduction=4.0, dd_threshold_for_min=7.0),
+        RiskConfig(base_risk_pct=3.0, reduced_risk_pct=2.0, min_risk_pct=1.0, dd_threshold_for_reduction=4.0, dd_threshold_for_min=7.0),
+        RiskConfig(base_risk_pct=3.5, reduced_risk_pct=2.0, min_risk_pct=1.0, dd_threshold_for_reduction=4.0, dd_threshold_for_min=7.0),
+        RiskConfig(base_risk_pct=4.0, reduced_risk_pct=2.5, min_risk_pct=1.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
+        RiskConfig(base_risk_pct=4.0, reduced_risk_pct=2.0, min_risk_pct=1.0, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
+        RiskConfig(base_risk_pct=4.5, reduced_risk_pct=2.5, min_risk_pct=1.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
+    ]
+    
+    best_config = None
+    best_pass_rate = 0
+    all_results = []
+    
+    for cfg in configs_to_test:
+        result = run_monthly_challenge_simulation(all_trades, cfg)
+        
+        all_results.append({
+            'config': f"{cfg.base_risk_pct}/{cfg.reduced_risk_pct}/{cfg.min_risk_pct}%",
+            'pass_rate': result['pass_rate'],
+            'months_passed': result['months_passed'],
+            'months_blown': result['months_blown'],
+            'total_pnl': result['total_pnl'],
+        })
+        
+        if result['pass_rate'] > best_pass_rate and result['months_blown'] == 0:
+            best_pass_rate = result['pass_rate']
+            best_config = cfg
+    
+    return {
+        'best_config': best_config,
+        'best_pass_rate': best_pass_rate,
+        'all_results': all_results,
+    }
+
+
 def test_smart_risk():
-    """Test smart risk management."""
+    """Test smart risk management with month-reset simulation."""
     from challenge_5ers_v3_pro import run_v3_pro_backtest_for_asset
     
     MEGA_PORTFOLIO = [
@@ -261,7 +369,7 @@ def test_smart_risk():
         'BTC_USD', 'ETH_USD'
     ]
     
-    print("Loading trades...")
+    print("Loading trades from 35 assets...")
     all_trades = []
     for symbol in MEGA_PORTFOLIO:
         result = run_v3_pro_backtest_for_asset(
@@ -279,41 +387,53 @@ def test_smart_risk():
     print(f"Loaded {len(all_trades)} trades")
     print()
     
-    configs = [
-        RiskConfig(base_risk_pct=2.5, reduced_risk_pct=1.5, min_risk_pct=1.0),
-        RiskConfig(base_risk_pct=3.0, reduced_risk_pct=2.0, min_risk_pct=1.0),
-        RiskConfig(base_risk_pct=3.5, reduced_risk_pct=2.0, min_risk_pct=1.0),
-        RiskConfig(base_risk_pct=4.0, reduced_risk_pct=2.5, min_risk_pct=1.5),
-        RiskConfig(base_risk_pct=4.5, reduced_risk_pct=3.0, min_risk_pct=2.0),
-        RiskConfig(base_risk_pct=5.0, reduced_risk_pct=3.0, min_risk_pct=2.0),
-    ]
-    
-    print("Testing Smart Risk Configurations:")
     print("=" * 90)
-    print(f"{'Config':<25} | {'Pass':<6} | {'Trades':<8} | {'Skip':<6} | {'P/L':>10} | {'Blown':<8}")
-    print("-" * 90)
+    print("MONTH-RESET CHALLENGE SIMULATION")
+    print("Each month starts fresh with $10,000 - this is how prop firms work")
+    print("=" * 90)
+    print()
     
-    for cfg in configs:
-        months_passed = 0
-        total_months = 0
+    opt_result = find_optimal_config(all_trades)
+    
+    print("Risk Configuration Comparison:")
+    print("-" * 80)
+    print(f"{'Config':<20} | {'Pass Rate':<12} | {'Passed':<8} | {'Blown':<8} | {'Total P/L':<12}")
+    print("-" * 80)
+    
+    for r in opt_result['all_results']:
+        print(f"{r['config']:<20} | {r['pass_rate']:>6.0f}%      | {r['months_passed']:<8} | {r['months_blown']:<8} | ${r['total_pnl']:>10,.0f}")
+    
+    print()
+    
+    if opt_result['best_config']:
+        best_cfg = opt_result['best_config']
+        print(f"BEST CONFIG: {best_cfg.base_risk_pct}/{best_cfg.reduced_risk_pct}/{best_cfg.min_risk_pct}% (no breaches)")
+        print("=" * 90)
         
-        for month in range(1, 13):
-            month_trades = [t for t in all_trades if t['entry_time'].startswith(f'2024-{month:02d}')]
-            if not month_trades:
-                continue
-            
-            total_months += 1
-            result = simulate_with_smart_risk(month_trades, cfg)
-            
-            if result['step1_passed'] and not result['blown'] and result['profitable_days'] >= 3:
-                months_passed += 1
+        monthly = run_monthly_challenge_simulation(all_trades, best_cfg)
         
-        yearly = simulate_with_smart_risk(all_trades, cfg)
+        print()
+        print("Monthly Breakdown:")
+        print("-" * 90)
+        print(f"{'Month':<10} | {'Trades':<8} | {'Taken':<8} | {'P/L':>12} | {'Days':<6} | {'Status':<10}")
+        print("-" * 90)
         
-        config_name = f"{cfg.base_risk_pct}/{cfg.reduced_risk_pct}/{cfg.min_risk_pct}%"
-        pass_rate = f"{months_passed}/{total_months}"
+        for month, data in sorted(monthly['monthly_results'].items()):
+            status = 'PASS!' if data['passed'] else ('BREACH!' if data['blown'] else 'FAIL')
+            print(f"{month:<10} | {data['trades_available']:<8} | {data['trades_taken']:<8} | ${data['pnl']:>10,.0f} | {data['profitable_days']:<6} | {status:<10}")
         
-        print(f"{config_name:<25} | {pass_rate:<6} | {yearly['total_trades']:<8} | {yearly['skipped_trades']:<6} | ${yearly['total_pnl']:>9,.0f} | {str(yearly['blown']):<8}")
+        print("-" * 90)
+        print(f"MONTHLY PASS RATE: {monthly['months_passed']}/{monthly['total_months']} ({monthly['pass_rate']:.0f}%)")
+        print(f"TOTAL P/L: ${monthly['total_pnl']:,.0f}")
+        print(f"NO BREACHES: {monthly['months_blown'] == 0}")
+    
+    print()
+    print("=" * 90)
+    print("KEY INSIGHT: With higher leverage + smart DD management:")
+    print("- Risk reduces automatically when in drawdown")
+    print("- Prevents breach while still trading most setups")
+    print("- Each month is independent - bad month doesn't ruin the year")
+    print("=" * 90)
 
 
 if __name__ == '__main__':
