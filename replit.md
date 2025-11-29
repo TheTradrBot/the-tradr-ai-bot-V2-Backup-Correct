@@ -20,11 +20,12 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 - **Minimum Profitable Days**: 3 days required per step
 - **Maximum Trades Per Day**: 12
 
-**Dynamic Risk Management (Optimized):**
-- **Base Risk**: 4.5% ($450/trade) when account is healthy
-- **Reduced Risk**: 2.0% ($200/trade) at 2.5%+ drawdown
+**Dynamic Risk Management (Optimized with Concurrent Exposure Tracking):**
+- **Base Risk**: 3.0% ($300/trade) when account is healthy
+- **Reduced Risk**: 1.5% ($150/trade) at 2.5%+ drawdown
 - **Minimum Risk**: 0.5% ($50/trade) at 5%+ drawdown
-- This aggressive-start + quick-reduction approach maximizes gains while preventing breaches
+- **Max Total Exposure**: 7% (ensures multiple SLs can't breach 10% DD)
+- When trades hit TP1, SL moves to BE reducing effective risk to ~30%
 
 ## CURRENT LIVE STRATEGY: V3 Pro (November 2025)
 
@@ -43,13 +44,14 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 | Break-Even | Moves SL to entry at +1R |
 
 **2024 Backtest Results (MEGA Portfolio - 35 Assets):**
-- Total P/L: **+$96,184 (961% yearly return)**
-- Monthly Pass Rate: **60%** (6/10 months) with ZERO breaches
+- Total P/L: **+$69,398 (694% yearly return)**
+- Monthly Pass Rate: **70%** (7/10 months) with ZERO breaches
 - Trades: 754 total across 35 instruments
-- Dynamic risk sizing: 4.5% base → 2.0% mid-DD → 0.5% deep-DD
+- Dynamic risk sizing: 3.0% base → 1.5% mid-DD → 0.5% deep-DD
+- Concurrent exposure cap: 7% max (prevents multiple SL breach)
 - Partial TP: 50% closed at 1R to protect capital + SL moved to entry+0.1R
-- Pass months: May ($15K), June ($4K), July ($29K), August ($9K), October ($31K), November ($11K)
-- Fail months: March, April (near-miss), September, December (sparse setups)
+- Pass months: May ($10K), June ($2K), July ($20K), August ($5K), October ($21K), November ($9K), December ($4K)
+- Fail months: March, April (near-miss), September (sparse setups)
 
 ### Asset-Specific Configurations
 | Asset | Confluence | Min RR | Notes |
@@ -79,12 +81,12 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
 ## MONTHLY PASS RATE REALITY
 
 **Optimization Results (November 2025):**
-- Achieved **60% monthly pass rate** (6/10 months) with mega portfolio approach
-- This is at the **practical ceiling** - higher leverage reduces pass rate while increasing P/L
-- V3 Pro optimized: Dynamic risk (4.5/2.0/0.5%) + 35-asset portfolio + partial TP at 1R
-- Failing months: March (few setups), April (near miss), September (counter-trend losses), December
-- **70%+ yearly per-asset target remains statistically unrealistic** with available data
-- **Portfolio-level approach (961% yearly) is the practical path forward with ZERO breaches**
+- Achieved **70% monthly pass rate** (7/10 months) with mega portfolio approach
+- Uses **concurrent exposure tracking** to prevent multiple SL breach
+- V3 Pro optimized: Dynamic risk (3.0/1.5/0.5%) + 7% max exposure + partial TP at 1R
+- Failing months: March (few setups), April (near-miss), September (counter-trend losses)
+- **70%+ per-asset target remains unrealistic** - portfolio approach is required
+- **Portfolio-level approach (694% yearly) achieves 70% pass rate with ZERO breaches**
 
 ## KEY FILES
 

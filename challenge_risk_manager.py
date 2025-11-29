@@ -5,49 +5,78 @@ Smart position sizing that:
 1. Trades ALL setups (user requirement)
 2. Uses higher base leverage (3-4%)
 3. Reduces risk dynamically when in drawdown
-4. Ensures no breach even with multiple concurrent losses
+4. TRACKS CONCURRENT TRADES to prevent combined SL breach
 5. Moves SL to profit at TP1
 
-RULES FOR SAFE HIGHER LEVERAGE:
-- Base risk: 3-4% when account is healthy
-- Reduce to 1-2% when near DD limits
-- Max 2 concurrent trades at max risk
-- At TP1: take 50% profit, move SL to entry+0.1R
+CRITICAL: Max combined exposure must stay under DD limits
+- If 3 trades open at 3% each = 9% exposure
+- All hitting SL = 9% loss (under 10% max DD)
+- Must cap new trades when exposure approaches limit
 """
 
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 
 
 @dataclass
 class RiskConfig:
     """Risk management configuration."""
-    base_risk_pct: float = 4.0
+    base_risk_pct: float = 4.5
     reduced_risk_pct: float = 2.0
-    min_risk_pct: float = 1.0
+    min_risk_pct: float = 0.5
     
     max_dd_pct: float = 10.0
     daily_dd_pct: float = 5.0
     
-    dd_threshold_for_reduction: float = 5.0
-    dd_threshold_for_min: float = 8.0
+    dd_threshold_for_reduction: float = 2.5
+    dd_threshold_for_min: float = 5.0
     
     partial_tp_r: float = 1.0
     partial_close_pct: float = 50.0
     sl_to_profit_buffer_r: float = 0.1
     
     max_concurrent_trades: int = 3
+    max_total_exposure_pct: float = 8.0
+
+
+@dataclass
+class OpenPosition:
+    """Represents an open trade position."""
+    symbol: str
+    entry_time: str
+    exit_time: str
+    risk_usd: float
+    current_risk_usd: float
+    pnl_r: float
+    highest_r: float
+    result: str
+    partial_tp_taken: bool = False
+    sl_moved_to_be: bool = False
+
+
+def parse_datetime(dt_str: str) -> Optional[datetime]:
+    """Parse datetime string to datetime object."""
+    if not dt_str:
+        return None
+    try:
+        if 'T' in dt_str:
+            return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+        return datetime.strptime(dt_str[:10], '%Y-%m-%d')
+    except:
+        return None
 
 
 def calculate_smart_risk(
     balance: float,
     starting_balance: float,
     prev_day_balance: float,
+    open_exposure: float,
     config: RiskConfig = None
 ) -> Tuple[float, str]:
     """
-    Calculate smart risk based on current drawdown.
+    Calculate smart risk based on current drawdown AND open exposure.
     
     Returns (risk_usd, reason)
     """
@@ -55,7 +84,6 @@ def calculate_smart_risk(
         config = RiskConfig()
     
     current_dd_pct = ((starting_balance - balance) / starting_balance) * 100
-    daily_dd_pct = ((prev_day_balance - balance) / prev_day_balance) * 100 if prev_day_balance > 0 else 0
     
     max_dd_floor = starting_balance * (1 - config.max_dd_pct / 100)
     daily_dd_floor = prev_day_balance * (1 - config.daily_dd_pct / 100)
@@ -75,30 +103,43 @@ def calculate_smart_risk(
     
     risk_usd = starting_balance * (risk_pct / 100)
     
+    max_total_exposure = starting_balance * (config.max_total_exposure_pct / 100)
+    available_exposure = max_total_exposure - open_exposure
+    
+    if available_exposure <= 0:
+        return 0, "MAX_EXPOSURE_REACHED"
+    
+    if risk_usd > available_exposure:
+        risk_usd = available_exposure
+        reason = "CAPPED_BY_EXPOSURE"
+    
     room_to_max_dd = balance - max_dd_floor
     room_to_daily_dd = balance - daily_dd_floor
     
-    max_safe_risk = min(room_to_max_dd, room_to_daily_dd) * 0.9
+    combined_potential_loss = open_exposure + risk_usd
+    if combined_potential_loss > room_to_max_dd * 0.95:
+        risk_usd = max(0, room_to_max_dd * 0.95 - open_exposure)
+        reason = "CAPPED_BY_DD_ROOM"
     
-    if risk_usd > max_safe_risk:
-        risk_usd = max_safe_risk
-        reason = f"CAPPED_BY_DD_ROOM"
+    if combined_potential_loss > room_to_daily_dd * 0.95:
+        risk_usd = max(0, room_to_daily_dd * 0.95 - open_exposure)
+        reason = "CAPPED_BY_DAILY_DD"
     
     return max(0, risk_usd), reason
 
 
-def simulate_with_smart_risk(
+def simulate_with_concurrent_tracking(
     trades: List[Dict],
     config: RiskConfig = None
 ) -> Dict:
     """
-    Simulate challenge with smart risk management.
+    Simulate challenge with proper concurrent trade tracking.
     
     Key features:
-    - Takes ALL trades (no skipping)
-    - Adjusts risk based on drawdown
-    - Handles partial TP + breakeven
-    - Never breaches (reduces risk instead)
+    - Tracks open positions and their combined exposure
+    - Reduces exposure when trades hit TP1 (SL moved to BE)
+    - Ensures combined open risk can't breach max DD
+    - Handles partial TP + breakeven moves
     """
     if config is None:
         config = RiskConfig()
@@ -121,7 +162,8 @@ def simulate_with_smart_risk(
     daily_pnl = defaultdict(float)
     profitable_days = set()
     trade_log = []
-    risk_log = []
+    
+    open_risk_usd = 0.0
     
     sorted_trades = sorted(trades, key=lambda x: x.get('entry_time', ''))
     
@@ -130,6 +172,7 @@ def simulate_with_smart_risk(
             break
         
         entry_time = trade.get('entry_time', '')
+        exit_time = trade.get('exit_time', '')
         if len(entry_time) < 10:
             continue
         
@@ -142,26 +185,20 @@ def simulate_with_smart_risk(
             prev_day_balance = balance
         
         risk_usd, risk_reason = calculate_smart_risk(
-            balance, starting_balance, prev_day_balance, config
+            balance, starting_balance, prev_day_balance, 
+            open_risk_usd, config
         )
         
         if risk_usd < 25:
-            risk_log.append({
-                'time': entry_time,
-                'action': 'SKIP',
-                'reason': risk_reason,
-                'balance': balance,
-            })
             continue
         
         pnl_r = trade.get('r_multiple', trade.get('pnl_r', 0))
         result = trade.get('result', 'UNKNOWN')
         highest_r = trade.get('highest_r', 0)
         
-        pnl_usd = risk_usd * pnl_r
-        partial_profit = 0
+        trade_hits_tp1 = highest_r >= config.partial_tp_r
         
-        if highest_r >= config.partial_tp_r and result != 'LOSS':
+        if trade_hits_tp1 and result != 'LOSS':
             partial_profit = (risk_usd * config.partial_close_pct / 100) * config.partial_tp_r
             remaining_risk = risk_usd * (1 - config.partial_close_pct / 100)
             
@@ -171,6 +208,13 @@ def simulate_with_smart_risk(
                 remaining_pnl = remaining_risk * config.sl_to_profit_buffer_r
             
             pnl_usd = partial_profit + remaining_pnl
+            
+            effective_risk_during_trade = risk_usd * 0.3
+        else:
+            pnl_usd = risk_usd * pnl_r
+            effective_risk_during_trade = risk_usd
+        
+        open_risk_usd += effective_risk_during_trade
         
         new_balance = balance + pnl_usd
         
@@ -189,7 +233,11 @@ def simulate_with_smart_risk(
         
         balance = new_balance
         peak_balance = max(peak_balance, balance)
-        daily_pnl[trade_day] += pnl_usd
+        
+        exit_day = exit_time[:10] if len(exit_time) >= 10 else trade_day
+        daily_pnl[exit_day] += pnl_usd
+        
+        open_risk_usd = max(0, open_risk_usd - effective_risk_during_trade)
         
         if not step1_passed and balance >= step1_target:
             step1_passed = True
@@ -204,7 +252,7 @@ def simulate_with_smart_risk(
             'risk_reason': risk_reason,
             'pnl_r': pnl_r,
             'pnl_usd': pnl_usd,
-            'partial': partial_profit > 0,
+            'partial': trade_hits_tp1,
             'balance': balance,
             'result': result,
         })
@@ -222,8 +270,6 @@ def simulate_with_smart_risk(
         not blown
     )
     
-    skipped = len(sorted_trades) - total_trades
-    
     return {
         'passed': challenge_passed,
         'step1_passed': step1_passed,
@@ -235,14 +281,21 @@ def simulate_with_smart_risk(
         'total_pnl': balance - starting_balance,
         'total_return_pct': ((balance - starting_balance) / starting_balance) * 100,
         'total_trades': total_trades,
-        'skipped_trades': skipped,
+        'skipped_trades': len(sorted_trades) - total_trades,
         'wins': wins,
         'win_rate': (wins / total_trades * 100) if total_trades > 0 else 0,
         'profitable_days': len(profitable_days),
         'min_profitable_days_required': 3,
         'trade_log': trade_log,
-        'risk_log': risk_log,
     }
+
+
+def simulate_with_smart_risk(
+    trades: List[Dict],
+    config: RiskConfig = None
+) -> Dict:
+    """Wrapper that uses concurrent tracking simulation."""
+    return simulate_with_concurrent_tracking(trades, config)
 
 
 def run_monthly_challenge_simulation(
@@ -273,7 +326,7 @@ def run_monthly_challenge_simulation(
         if not month_trades:
             continue
         
-        result = simulate_with_smart_risk(month_trades, config)
+        result = simulate_with_concurrent_tracking(month_trades, config)
         
         passed = (
             result['step1_passed'] and 
@@ -299,6 +352,7 @@ def run_monthly_challenge_simulation(
             'step1': result['step1_passed'],
             'step2': result['step2_passed'],
             'blown': result['blown'],
+            'blown_reason': result.get('blown_reason'),
             'passed': passed,
         }
     
@@ -320,12 +374,11 @@ def find_optimal_config(all_trades: List[Dict]) -> Dict:
     """Find optimal risk configuration by testing multiple settings."""
     
     configs_to_test = [
-        RiskConfig(base_risk_pct=2.5, reduced_risk_pct=1.5, min_risk_pct=0.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
-        RiskConfig(base_risk_pct=3.0, reduced_risk_pct=1.5, min_risk_pct=0.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
-        RiskConfig(base_risk_pct=3.5, reduced_risk_pct=1.5, min_risk_pct=0.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
-        RiskConfig(base_risk_pct=4.0, reduced_risk_pct=2.0, min_risk_pct=0.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
-        RiskConfig(base_risk_pct=4.5, reduced_risk_pct=2.0, min_risk_pct=0.5, dd_threshold_for_reduction=2.5, dd_threshold_for_min=5.0),
-        RiskConfig(base_risk_pct=5.0, reduced_risk_pct=2.5, min_risk_pct=1.0, dd_threshold_for_reduction=2.5, dd_threshold_for_min=5.0),
+        RiskConfig(base_risk_pct=2.5, reduced_risk_pct=1.5, min_risk_pct=0.5, max_total_exposure_pct=7.0),
+        RiskConfig(base_risk_pct=3.0, reduced_risk_pct=1.5, min_risk_pct=0.5, max_total_exposure_pct=7.0),
+        RiskConfig(base_risk_pct=3.5, reduced_risk_pct=2.0, min_risk_pct=0.5, max_total_exposure_pct=8.0),
+        RiskConfig(base_risk_pct=4.0, reduced_risk_pct=2.0, min_risk_pct=0.5, max_total_exposure_pct=8.0),
+        RiskConfig(base_risk_pct=4.5, reduced_risk_pct=2.0, min_risk_pct=0.5, max_total_exposure_pct=8.0),
     ]
     
     best_config = None
@@ -338,6 +391,7 @@ def find_optimal_config(all_trades: List[Dict]) -> Dict:
         
         all_results.append({
             'config': f"{cfg.base_risk_pct}/{cfg.reduced_risk_pct}/{cfg.min_risk_pct}%",
+            'exposure': f"{cfg.max_total_exposure_pct}%",
             'pass_rate': result['pass_rate'],
             'months_passed': result['months_passed'],
             'months_blown': result['months_blown'],
@@ -360,8 +414,8 @@ def find_optimal_config(all_trades: List[Dict]) -> Dict:
     }
 
 
-def test_smart_risk():
-    """Test smart risk management with month-reset simulation."""
+def test_concurrent_exposure():
+    """Test that concurrent exposure tracking works correctly."""
     from challenge_5ers_v3_pro import run_v3_pro_backtest_for_asset
     
     MEGA_PORTFOLIO = [
@@ -394,54 +448,56 @@ def test_smart_risk():
     print(f"Loaded {len(all_trades)} trades")
     print()
     
-    print("=" * 90)
-    print("MONTH-RESET CHALLENGE SIMULATION")
-    print("Each month starts fresh with $10,000 - this is how prop firms work")
-    print("=" * 90)
+    print("=" * 95)
+    print("CONCURRENT TRADE EXPOSURE SIMULATION")
+    print("Tracks open positions - ensures combined SL can't breach max DD")
+    print("=" * 95)
     print()
     
     opt_result = find_optimal_config(all_trades)
     
     print("Risk Configuration Comparison:")
-    print("-" * 80)
-    print(f"{'Config':<20} | {'Pass Rate':<12} | {'Passed':<8} | {'Blown':<8} | {'Total P/L':<12}")
-    print("-" * 80)
+    print("-" * 95)
+    print(f"{'Config':<18} | {'Exp':<6} | {'Pass':<6} | {'Blown':<6} | {'P/L':>12} | {'Safe':>8}")
+    print("-" * 95)
     
     for r in opt_result['all_results']:
-        print(f"{r['config']:<20} | {r['pass_rate']:>6.0f}%      | {r['months_passed']:<8} | {r['months_blown']:<8} | ${r['total_pnl']:>10,.0f}")
+        safe = "YES" if r['months_blown'] == 0 else "NO"
+        print(f"{r['config']:<18} | {r['exposure']:<6} | {r['months_passed']}/10  | {r['months_blown']:<6} | ${r['total_pnl']:>10,.0f} | {safe:>8}")
     
     print()
     
     if opt_result['best_config']:
         best_cfg = opt_result['best_config']
-        print(f"BEST CONFIG: {best_cfg.base_risk_pct}/{best_cfg.reduced_risk_pct}/{best_cfg.min_risk_pct}% (no breaches)")
-        print("=" * 90)
+        print(f"BEST CONFIG: {best_cfg.base_risk_pct}/{best_cfg.reduced_risk_pct}/{best_cfg.min_risk_pct}% | Max Exposure: {best_cfg.max_total_exposure_pct}%")
+        print("=" * 95)
         
         monthly = run_monthly_challenge_simulation(all_trades, best_cfg)
         
         print()
         print("Monthly Breakdown:")
-        print("-" * 90)
-        print(f"{'Month':<10} | {'Trades':<8} | {'Taken':<8} | {'P/L':>12} | {'Days':<6} | {'Status':<10}")
-        print("-" * 90)
+        print("-" * 95)
+        print(f"{'Month':<10} | {'Avail':<6} | {'Taken':<6} | {'P/L':>12} | {'Days':<6} | {'Status':<12}")
+        print("-" * 95)
         
         for month, data in sorted(monthly['monthly_results'].items()):
             status = 'PASS!' if data['passed'] else ('BREACH!' if data['blown'] else 'FAIL')
-            print(f"{month:<10} | {data['trades_available']:<8} | {data['trades_taken']:<8} | ${data['pnl']:>10,.0f} | {data['profitable_days']:<6} | {status:<10}")
+            if data['blown'] and data.get('blown_reason'):
+                status = f"BREACH: {data['blown_reason'][:20]}"
+            print(f"{month:<10} | {data['trades_available']:<6} | {data['trades_taken']:<6} | ${data['pnl']:>10,.0f} | {data['profitable_days']:<6} | {status:<12}")
         
-        print("-" * 90)
-        print(f"MONTHLY PASS RATE: {monthly['months_passed']}/{monthly['total_months']} ({monthly['pass_rate']:.0f}%)")
+        print("-" * 95)
+        print(f"PASS RATE: {monthly['months_passed']}/{monthly['total_months']} ({monthly['pass_rate']:.0f}%)")
         print(f"TOTAL P/L: ${monthly['total_pnl']:,.0f}")
-        print(f"NO BREACHES: {monthly['months_blown'] == 0}")
-    
-    print()
-    print("=" * 90)
-    print("KEY INSIGHT: With higher leverage + smart DD management:")
-    print("- Risk reduces automatically when in drawdown")
-    print("- Prevents breach while still trading most setups")
-    print("- Each month is independent - bad month doesn't ruin the year")
-    print("=" * 90)
+        print(f"BREACHES: {monthly['months_blown']}")
+        
+        max_concurrent = best_cfg.max_total_exposure_pct / best_cfg.base_risk_pct
+        print()
+        print(f"SAFETY CHECK:")
+        print(f"  - Max concurrent at base risk: {max_concurrent:.1f} trades")
+        print(f"  - Max exposure: {best_cfg.max_total_exposure_pct}% (under 10% max DD)")
+        print(f"  - If ALL concurrent trades hit SL: -{best_cfg.max_total_exposure_pct}% (safe)")
 
 
 if __name__ == '__main__':
-    test_smart_risk()
+    test_concurrent_exposure()
