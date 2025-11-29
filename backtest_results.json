@@ -1,205 +1,44 @@
 {
-  "timestamp": "2025-11-29T04:06:59.046295",
+  "timestamp": "2025-11-29T04:18:18.229022",
   "results": [
     {
       "asset": "EUR_USD",
       "period": "2024-01-01 - 2024-11-28",
-      "total_trades": 30,
-      "win_rate": 6.666666666666667,
-      "net_return_pct": -9.703440434456926,
-      "total_profit_usd": -9703.440434456927,
-      "max_drawdown_pct": 9.703440434456926,
-      "avg_rr": -0.32344801448189753,
-      "tp1_trail_hits": 15,
-      "tp2_hits": 2,
+      "total_trades": 6,
+      "win_rate": 0.0,
+      "net_return_pct": -5.0,
+      "total_profit_usd": -5000.0,
+      "max_drawdown_pct": 5.0,
+      "avg_rr": -0.8333333333333334,
+      "tp1_trail_hits": 1,
+      "tp2_hits": 0,
       "tp3_hits": 0,
-      "sl_hits": 13,
+      "sl_hits": 5,
       "trades": [
         {
           "entry_date": "2024-01-02",
-          "exit_date": "2024-01-03",
+          "exit_date": "2024-10-09",
           "direction": "bullish",
           "rr": 0.0,
           "exit_reason": "TP1+Trail"
         },
         {
-          "entry_date": "2024-01-04",
-          "exit_date": "2024-03-05",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-03-06",
-          "exit_date": "2024-03-07",
-          "direction": "bearish",
+          "entry_date": "2024-10-14",
+          "exit_date": "2024-10-15",
+          "direction": "bullish",
           "rr": -1.0,
           "exit_reason": "SL"
         },
         {
-          "entry_date": "2024-03-11",
-          "exit_date": "2024-03-12",
-          "direction": "bearish",
+          "entry_date": "2024-10-21",
+          "exit_date": "2024-10-22",
+          "direction": "bullish",
           "rr": -1.0,
           "exit_reason": "SL"
         },
         {
-          "entry_date": "2024-03-13",
-          "exit_date": "2024-03-31",
-          "direction": "bearish",
-          "rr": 1.0999999999999948,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-04-02",
-          "exit_date": "2024-04-09",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-10",
-          "exit_date": "2024-04-11",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-15",
-          "exit_date": "2024-04-16",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-17",
-          "exit_date": "2024-04-18",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-22",
-          "exit_date": "2024-04-23",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-24",
-          "exit_date": "2024-04-25",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-29",
-          "exit_date": "2024-04-30",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-01",
-          "exit_date": "2024-06-13",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-17",
-          "exit_date": "2024-06-18",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-19",
-          "exit_date": "2024-06-20",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-24",
-          "exit_date": "2024-06-25",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-26",
-          "exit_date": "2024-06-27",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-01",
-          "exit_date": "2024-07-02",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-03",
-          "exit_date": "2024-07-16",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-17",
-          "exit_date": "2024-08-04",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-05",
-          "exit_date": "2024-08-12",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-13",
-          "exit_date": "2024-08-18",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-19",
-          "exit_date": "2024-08-20",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-21",
-          "exit_date": "2024-08-22",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-26",
-          "exit_date": "2024-08-27",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-28",
+          "entry_date": "2024-10-28",
           "exit_date": "2024-11-05",
-          "direction": "bearish",
-          "rr": 2.196559565543079,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-11-06",
-          "exit_date": "2024-11-07",
           "direction": "bullish",
           "rr": -1.0,
           "exit_reason": "SL"
@@ -212,13 +51,6 @@
           "exit_reason": "SL"
         },
         {
-          "entry_date": "2024-11-13",
-          "exit_date": "2024-11-14",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
           "entry_date": "2024-11-18",
           "exit_date": "2024-11-21",
           "direction": "bullish",
@@ -226,333 +58,40 @@
           "exit_reason": "SL"
         }
       ],
-      "notes": "Backtest Summary - EUR_USD (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 30\nWin rate: 6.7%\nTotal profit: +$-9,703 (+-9.7%)\nMax drawdown: -9.7%\nExpectancy: -0.32R / trade\nTP1+Trail (15), TP2 (2), TP3 (0), SL (13)\nHolidays skipped: 13\nPrice validations adjusted: 28",
+      "notes": "Backtest Summary - EUR_USD (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 6\nWin rate: 0.0%\nTotal profit: +$-5,000 (+-5.0%)\nMax drawdown: -5.0%\nExpectancy: -0.83R / trade\nTP1+Trail (1), TP2 (0), TP3 (0), SL (5)\nHolidays skipped: 5\nPrice validations adjusted: 7",
       "account_size": 100000,
       "risk_per_trade_pct": 0.01,
-      "holidays_skipped": 13,
-      "price_validation_adjusted": 28
+      "holidays_skipped": 5,
+      "price_validation_adjusted": 7,
+      "params": {
+        "min_confluence": 4,
+        "min_quality_factors": 2,
+        "atr_sl_multiplier": 1.0,
+        "atr_tp1_multiplier": 1.5,
+        "atr_tp2_multiplier": 2.5,
+        "atr_tp3_multiplier": 4.0
+      }
     },
     {
       "asset": "GBP_USD",
       "period": "2024-01-01 - 2024-11-28",
-      "total_trades": 51,
-      "win_rate": 7.8431372549019605,
-      "net_return_pct": -11.723527407678052,
-      "total_profit_usd": -11723.527407678052,
-      "max_drawdown_pct": 11.723527407678056,
-      "avg_rr": -0.22987308642505985,
-      "tp1_trail_hits": 31,
-      "tp2_hits": 4,
+      "total_trades": 4,
+      "win_rate": 25.0,
+      "net_return_pct": -0.7716226756507294,
+      "total_profit_usd": -771.6226756507294,
+      "max_drawdown_pct": 2.0,
+      "avg_rr": -0.19290566891268235,
+      "tp1_trail_hits": 1,
+      "tp2_hits": 1,
       "tp3_hits": 0,
-      "sl_hits": 16,
+      "sl_hits": 2,
       "trades": [
         {
           "entry_date": "2024-01-02",
-          "exit_date": "2024-01-03",
+          "exit_date": "2024-09-18",
           "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-01-04",
-          "exit_date": "2024-01-15",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-01-16",
-          "exit_date": "2024-01-31",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-02-01",
-          "exit_date": "2024-02-04",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-02-05",
-          "exit_date": "2024-02-13",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-02-14",
-          "exit_date": "2024-03-04",
-          "direction": "bullish",
-          "rr": 1.0999999999999963,
+          "rr": 1.2283773243492706,
           "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-03-05",
-          "exit_date": "2024-03-06",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-03-07",
-          "exit_date": "2024-03-10",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-03-11",
-          "exit_date": "2024-03-12",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-03-13",
-          "exit_date": "2024-03-31",
-          "direction": "bearish",
-          "rr": 1.1000000000000012,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-04-02",
-          "exit_date": "2024-04-03",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-04",
-          "exit_date": "2024-04-07",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-08",
-          "exit_date": "2024-04-09",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-10",
-          "exit_date": "2024-04-11",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-15",
-          "exit_date": "2024-04-16",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-17",
-          "exit_date": "2024-04-18",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-22",
-          "exit_date": "2024-04-23",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-24",
-          "exit_date": "2024-04-25",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-29",
-          "exit_date": "2024-04-30",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-01",
-          "exit_date": "2024-05-09",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-13",
-          "exit_date": "2024-05-21",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-05-22",
-          "exit_date": "2024-05-23",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-05-27",
-          "exit_date": "2024-05-28",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-05-29",
-          "exit_date": "2024-05-30",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-06-03",
-          "exit_date": "2024-06-11",
-          "direction": "bearish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-06-12",
-          "exit_date": "2024-06-20",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-06-24",
-          "exit_date": "2024-06-25",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-06-26",
-          "exit_date": "2024-06-27",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-01",
-          "exit_date": "2024-07-09",
-          "direction": "bullish",
-          "rr": 1.5457150109646687,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-07-10",
-          "exit_date": "2024-07-11",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-15",
-          "exit_date": "2024-07-16",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-17",
-          "exit_date": "2024-07-18",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-22",
-          "exit_date": "2024-07-23",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-24",
-          "exit_date": "2024-08-18",
-          "direction": "bullish",
-          "rr": 0.530757581357281,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-08-19",
-          "exit_date": "2024-08-20",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-08-21",
-          "exit_date": "2024-08-22",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-08-26",
-          "exit_date": "2024-08-27",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-08-28",
-          "exit_date": "2024-08-29",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-02",
-          "exit_date": "2024-09-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-04",
-          "exit_date": "2024-09-05",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-09",
-          "exit_date": "2024-09-10",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-11",
-          "exit_date": "2024-09-12",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-16",
-          "exit_date": "2024-09-17",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-18",
-          "exit_date": "2024-09-19",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
         },
         {
           "entry_date": "2024-09-23",
@@ -562,771 +101,65 @@
           "exit_reason": "TP1+Trail"
         },
         {
-          "entry_date": "2024-09-25",
-          "exit_date": "2024-09-26",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
           "entry_date": "2024-09-30",
-          "exit_date": "2024-10-01",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-10-02",
-          "exit_date": "2024-10-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-10-07",
           "exit_date": "2024-11-14",
           "direction": "bullish",
           "rr": -1.0,
           "exit_reason": "SL"
         },
         {
-          "entry_date": "2024-11-18",
-          "exit_date": "2024-11-19",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-11-20",
+          "entry_date": "2024-11-19",
           "exit_date": "2024-11-21",
           "direction": "bullish",
           "rr": -1.0,
           "exit_reason": "SL"
         }
       ],
-      "notes": "Backtest Summary - GBP_USD (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 51\nWin rate: 7.8%\nTotal profit: +$-11,724 (+-11.7%)\nMax drawdown: -11.7%\nExpectancy: -0.23R / trade\nTP1+Trail (31), TP2 (4), TP3 (0), SL (16)\nHolidays skipped: 21\nPrice validations adjusted: 46",
+      "notes": "Backtest Summary - GBP_USD (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 4\nWin rate: 25.0%\nTotal profit: +$-772 (+-0.8%)\nMax drawdown: -2.0%\nExpectancy: -0.19R / trade\nTP1+Trail (1), TP2 (1), TP3 (0), SL (2)\nHolidays skipped: 2\nPrice validations adjusted: 4",
       "account_size": 100000,
       "risk_per_trade_pct": 0.01,
-      "holidays_skipped": 21,
-      "price_validation_adjusted": 46
+      "holidays_skipped": 2,
+      "price_validation_adjusted": 4,
+      "params": {
+        "min_confluence": 4,
+        "min_quality_factors": 2,
+        "atr_sl_multiplier": 1.2,
+        "atr_tp1_multiplier": 1.8,
+        "atr_tp2_multiplier": 3.0,
+        "atr_tp3_multiplier": 4.5
+      }
     },
     {
       "asset": "USD_JPY",
       "period": "2024-01-01 - 2024-11-28",
-      "total_trades": 48,
-      "win_rate": 8.333333333333332,
-      "net_return_pct": 1.7158050002666152,
-      "total_profit_usd": 1715.8050002666153,
-      "max_drawdown_pct": 5.0,
-      "avg_rr": 0.035745937505554486,
-      "tp1_trail_hits": 39,
-      "tp2_hits": 4,
-      "tp3_hits": 0,
-      "sl_hits": 5,
-      "trades": [
-        {
-          "entry_date": "2024-01-02",
-          "exit_date": "2024-02-12",
-          "direction": "bullish",
-          "rr": 1.8760949909598512,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-02-13",
-          "exit_date": "2024-02-14",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-02-15",
-          "exit_date": "2024-02-18",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-02-19",
-          "exit_date": "2024-02-20",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-02-21",
-          "exit_date": "2024-02-22",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-02-26",
-          "exit_date": "2024-02-27",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-02-28",
-          "exit_date": "2024-02-29",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-03-04",
-          "exit_date": "2024-03-05",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-03-06",
-          "exit_date": "2024-03-19",
-          "direction": "bullish",
-          "rr": 1.1000000000000054,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-03-20",
-          "exit_date": "2024-03-21",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-03-25",
-          "exit_date": "2024-03-26",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-03-27",
-          "exit_date": "2024-03-28",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-02",
-          "exit_date": "2024-04-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-04",
-          "exit_date": "2024-04-07",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-08",
-          "exit_date": "2024-04-09",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-10",
-          "exit_date": "2024-04-11",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-15",
-          "exit_date": "2024-04-16",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-17",
-          "exit_date": "2024-04-18",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-22",
-          "exit_date": "2024-04-23",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-24",
-          "exit_date": "2024-04-25",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-29",
-          "exit_date": "2024-04-30",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-01",
-          "exit_date": "2024-05-15",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-16",
-          "exit_date": "2024-06-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-04",
-          "exit_date": "2024-06-20",
-          "direction": "bullish",
-          "rr": 1.1000000000000014,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-06-24",
-          "exit_date": "2024-06-25",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-26",
-          "exit_date": "2024-06-27",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-01",
-          "exit_date": "2024-07-02",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-03",
-          "exit_date": "2024-07-04",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-08",
-          "exit_date": "2024-07-09",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-10",
-          "exit_date": "2024-07-11",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-15",
-          "exit_date": "2024-07-16",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-17",
-          "exit_date": "2024-07-30",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-31",
-          "exit_date": "2024-08-01",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-05",
-          "exit_date": "2024-08-06",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-07",
-          "exit_date": "2024-09-12",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-09-16",
-          "exit_date": "2024-09-17",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-09-18",
-          "exit_date": "2024-10-22",
-          "direction": "bullish",
-          "rr": 2.6397100093067576,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-10-23",
-          "exit_date": "2024-10-24",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-10-28",
-          "exit_date": "2024-10-29",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-10-30",
-          "exit_date": "2024-10-31",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-04",
-          "exit_date": "2024-11-05",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-06",
-          "exit_date": "2024-11-07",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-11",
-          "exit_date": "2024-11-12",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-13",
-          "exit_date": "2024-11-14",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-18",
-          "exit_date": "2024-11-19",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-20",
-          "exit_date": "2024-11-21",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-25",
-          "exit_date": "2024-11-26",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-27",
-          "exit_date": "2024-11-28",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        }
-      ],
-      "notes": "Backtest Summary - USD_JPY (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 48\nWin rate: 8.3%\nTotal profit: +$1,716 (+1.7%)\nMax drawdown: -5.0%\nExpectancy: +0.04R / trade\nTP1+Trail (39), TP2 (4), TP3 (0), SL (5)\nHolidays skipped: 20\nPrice validations adjusted: 45",
-      "account_size": 100000,
-      "risk_per_trade_pct": 0.01,
-      "holidays_skipped": 20,
-      "price_validation_adjusted": 45
-    },
-    {
-      "asset": "USD_CHF",
-      "period": "2024-01-01 - 2024-11-28",
-      "total_trades": 34,
-      "win_rate": 5.88235294117647,
-      "net_return_pct": -4.981032890457546,
-      "total_profit_usd": -4981.032890457546,
-      "max_drawdown_pct": 11.0,
-      "avg_rr": -0.1465009673663984,
-      "tp1_trail_hits": 21,
-      "tp2_hits": 2,
-      "tp3_hits": 0,
-      "sl_hits": 11,
-      "trades": [
-        {
-          "entry_date": "2024-01-02",
-          "exit_date": "2024-03-21",
-          "direction": "bullish",
-          "rr": 2.6108278152070716,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-03-25",
-          "exit_date": "2024-03-26",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-03-27",
-          "exit_date": "2024-03-28",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-02",
-          "exit_date": "2024-04-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-04",
-          "exit_date": "2024-04-07",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-08",
-          "exit_date": "2024-04-09",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-10",
-          "exit_date": "2024-04-11",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-15",
-          "exit_date": "2024-04-16",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-17",
-          "exit_date": "2024-04-18",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-22",
-          "exit_date": "2024-04-23",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-24",
-          "exit_date": "2024-04-25",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-29",
-          "exit_date": "2024-04-30",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-01",
-          "exit_date": "2024-05-20",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-21",
-          "exit_date": "2024-05-22",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-23",
-          "exit_date": "2024-05-26",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-27",
-          "exit_date": "2024-06-02",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-06-03",
-          "exit_date": "2024-06-04",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-06-05",
-          "exit_date": "2024-06-06",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-06-10",
-          "exit_date": "2024-06-11",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-06-12",
-          "exit_date": "2024-06-17",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-06-18",
-          "exit_date": "2024-06-19",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-06-20",
-          "exit_date": "2024-07-10",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-11",
-          "exit_date": "2024-07-24",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-25",
-          "exit_date": "2024-07-30",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-31",
-          "exit_date": "2024-08-01",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-05",
-          "exit_date": "2024-08-06",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-07",
-          "exit_date": "2024-09-05",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-09-09",
-          "exit_date": "2024-11-11",
-          "direction": "bullish",
-          "rr": 3.408139294335382,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-11-12",
-          "exit_date": "2024-11-13",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-14",
-          "exit_date": "2024-11-17",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-18",
-          "exit_date": "2024-11-19",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-20",
-          "exit_date": "2024-11-21",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-25",
-          "exit_date": "2024-11-26",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-27",
-          "exit_date": "2024-11-28",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        }
-      ],
-      "notes": "Backtest Summary - USD_CHF (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 34\nWin rate: 5.9%\nTotal profit: +$-4,981 (+-5.0%)\nMax drawdown: -11.0%\nExpectancy: -0.15R / trade\nTP1+Trail (21), TP2 (2), TP3 (0), SL (11)\nHolidays skipped: 11\nPrice validations adjusted: 31",
-      "account_size": 100000,
-      "risk_per_trade_pct": 0.01,
-      "holidays_skipped": 11,
-      "price_validation_adjusted": 31
-    },
-    {
-      "asset": "USD_CAD",
-      "period": "2024-01-01 - 2024-11-28",
-      "total_trades": 30,
-      "win_rate": 10.0,
-      "net_return_pct": 2.5934326396691043,
-      "total_profit_usd": 2593.4326396691044,
+      "total_trades": 6,
+      "win_rate": 16.666666666666664,
+      "net_return_pct": 0.7934916515997545,
+      "total_profit_usd": 793.4916515997545,
       "max_drawdown_pct": 3.0,
-      "avg_rr": 0.08644775465563681,
-      "tp1_trail_hits": 24,
-      "tp2_hits": 3,
+      "avg_rr": 0.1322486085999591,
+      "tp1_trail_hits": 2,
+      "tp2_hits": 1,
       "tp3_hits": 0,
       "sl_hits": 3,
       "trades": [
         {
           "entry_date": "2024-01-02",
-          "exit_date": "2024-04-15",
+          "exit_date": "2024-04-25",
           "direction": "bullish",
-          "rr": 2.1008756899231638,
+          "rr": 3.7934916515997545,
           "exit_reason": "TP2"
         },
         {
-          "entry_date": "2024-04-16",
-          "exit_date": "2024-04-17",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-18",
-          "exit_date": "2024-04-21",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-22",
-          "exit_date": "2024-04-23",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-04-24",
-          "exit_date": "2024-05-02",
+          "entry_date": "2024-04-30",
+          "exit_date": "2024-05-01",
           "direction": "bullish",
           "rr": 0.0,
           "exit_reason": "TP1+Trail"
         },
         {
           "entry_date": "2024-05-06",
-          "exit_date": "2024-05-07",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-08",
-          "exit_date": "2024-05-22",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-05-23",
-          "exit_date": "2024-06-06",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-10",
-          "exit_date": "2024-06-11",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-12",
-          "exit_date": "2024-06-13",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-17",
-          "exit_date": "2024-06-27",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-01",
           "exit_date": "2024-07-23",
-          "direction": "bullish",
-          "rr": 1.0999999999999959,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-07-24",
-          "exit_date": "2024-07-25",
           "direction": "bullish",
           "rr": 0.0,
           "exit_reason": "TP1+Trail"
@@ -1335,685 +168,177 @@
           "entry_date": "2024-07-29",
           "exit_date": "2024-07-30",
           "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-31",
-          "exit_date": "2024-08-01",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
+          "rr": -1.0,
+          "exit_reason": "SL"
         },
         {
           "entry_date": "2024-08-05",
           "exit_date": "2024-08-06",
+          "direction": "bullish",
+          "rr": -1.0,
+          "exit_reason": "SL"
+        },
+        {
+          "entry_date": "2024-08-12",
+          "exit_date": "2024-09-12",
+          "direction": "bullish",
+          "rr": -1.0,
+          "exit_reason": "SL"
+        }
+      ],
+      "notes": "Backtest Summary - USD_JPY (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 6\nWin rate: 16.7%\nTotal profit: +$793 (+0.8%)\nMax drawdown: -3.0%\nExpectancy: +0.13R / trade\nTP1+Trail (2), TP2 (1), TP3 (0), SL (3)\nHolidays skipped: 4\nPrice validations adjusted: 7",
+      "account_size": 100000,
+      "risk_per_trade_pct": 0.01,
+      "holidays_skipped": 4,
+      "price_validation_adjusted": 7,
+      "params": {
+        "min_confluence": 4,
+        "min_quality_factors": 2,
+        "atr_sl_multiplier": 1.0,
+        "atr_tp1_multiplier": 1.5,
+        "atr_tp2_multiplier": 2.5,
+        "atr_tp3_multiplier": 4.0
+      }
+    },
+    {
+      "asset": "USD_CHF",
+      "period": "2024-01-01 - 2024-11-28",
+      "total_trades": 2,
+      "win_rate": 0.0,
+      "net_return_pct": -1.0,
+      "total_profit_usd": -1000.0,
+      "max_drawdown_pct": 1.0,
+      "avg_rr": -0.5,
+      "tp1_trail_hits": 1,
+      "tp2_hits": 0,
+      "tp3_hits": 0,
+      "sl_hits": 1,
+      "trades": [
+        {
+          "entry_date": "2024-01-02",
+          "exit_date": "2024-08-04",
           "direction": "bullish",
           "rr": 0.0,
           "exit_reason": "TP1+Trail"
         },
         {
           "entry_date": "2024-08-07",
-          "exit_date": "2024-08-22",
+          "exit_date": "2024-09-05",
           "direction": "bullish",
           "rr": -1.0,
           "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-26",
-          "exit_date": "2024-08-27",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-28",
-          "exit_date": "2024-08-29",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-09-02",
-          "exit_date": "2024-10-24",
-          "direction": "bullish",
-          "rr": 2.392556949745945,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-10-28",
-          "exit_date": "2024-10-29",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-10-30",
-          "exit_date": "2024-10-31",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-04",
-          "exit_date": "2024-11-05",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-06",
-          "exit_date": "2024-11-07",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-11",
-          "exit_date": "2024-11-12",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-13",
-          "exit_date": "2024-11-14",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-18",
-          "exit_date": "2024-11-19",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-20",
-          "exit_date": "2024-11-21",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-25",
-          "exit_date": "2024-11-26",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-11-27",
-          "exit_date": "2024-11-28",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
         }
       ],
-      "notes": "Backtest Summary - USD_CAD (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 30\nWin rate: 10.0%\nTotal profit: +$2,593 (+2.6%)\nMax drawdown: -3.0%\nExpectancy: +0.09R / trade\nTP1+Trail (24), TP2 (3), TP3 (0), SL (3)\nHolidays skipped: 14\nPrice validations adjusted: 27",
+      "notes": "Backtest Summary - USD_CHF (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 2\nWin rate: 0.0%\nTotal profit: +$-1,000 (+-1.0%)\nMax drawdown: -1.0%\nExpectancy: -0.50R / trade\nTP1+Trail (1), TP2 (0), TP3 (0), SL (1)\nHolidays skipped: 1\nPrice validations adjusted: 2",
       "account_size": 100000,
       "risk_per_trade_pct": 0.01,
-      "holidays_skipped": 14,
-      "price_validation_adjusted": 27
+      "holidays_skipped": 1,
+      "price_validation_adjusted": 2,
+      "params": {
+        "min_confluence": 4,
+        "min_quality_factors": 2,
+        "atr_sl_multiplier": 1.0,
+        "atr_tp1_multiplier": 1.5,
+        "atr_tp2_multiplier": 2.5,
+        "atr_tp3_multiplier": 4.0
+      }
+    },
+    {
+      "asset": "USD_CAD",
+      "period": "2024-01-01 - 2024-11-28",
+      "total_trades": 0,
+      "win_rate": 0.0,
+      "net_return_pct": 0.0,
+      "total_profit_usd": 0.0,
+      "max_drawdown_pct": 0.0,
+      "avg_rr": 0.0,
+      "tp1_trail_hits": 0,
+      "tp2_hits": 0,
+      "tp3_hits": 0,
+      "sl_hits": 0,
+      "trades": [],
+      "notes": "Backtest Summary - USD_CAD (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 0\nWin rate: 0.0%\nTotal profit: +$0 (+0.0%)\nMax drawdown: -0.0%\nExpectancy: +0.00R / trade\nTP1+Trail (0), TP2 (0), TP3 (0), SL (0)\nHolidays skipped: 1\nPrice validations adjusted: 1",
+      "account_size": 100000,
+      "risk_per_trade_pct": 0.01,
+      "holidays_skipped": 1,
+      "price_validation_adjusted": 1,
+      "params": {
+        "min_confluence": 4,
+        "min_quality_factors": 2,
+        "atr_sl_multiplier": 1.0,
+        "atr_tp1_multiplier": 1.5,
+        "atr_tp2_multiplier": 2.5,
+        "atr_tp3_multiplier": 4.0
+      }
     },
     {
       "asset": "AUD_USD",
       "period": "2024-01-01 - 2024-11-28",
-      "total_trades": 29,
-      "win_rate": 6.896551724137931,
-      "net_return_pct": 4.654797228522591,
-      "total_profit_usd": 4654.7972285225915,
-      "max_drawdown_pct": 4.0,
-      "avg_rr": 0.1605102492593997,
-      "tp1_trail_hits": 23,
-      "tp2_hits": 2,
+      "total_trades": 1,
+      "win_rate": 0.0,
+      "net_return_pct": 0.0,
+      "total_profit_usd": 0.0,
+      "max_drawdown_pct": 0.0,
+      "avg_rr": 0.0,
+      "tp1_trail_hits": 1,
+      "tp2_hits": 0,
       "tp3_hits": 0,
-      "sl_hits": 4,
+      "sl_hits": 0,
       "trades": [
         {
           "entry_date": "2024-01-02",
-          "exit_date": "2024-01-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-01-04",
-          "exit_date": "2024-01-07",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-01-08",
-          "exit_date": "2024-01-09",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-01-10",
-          "exit_date": "2024-01-11",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-01-15",
-          "exit_date": "2024-06-06",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-10",
-          "exit_date": "2024-06-11",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-12",
-          "exit_date": "2024-07-04",
-          "direction": "bullish",
-          "rr": 1.099999999999995,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-07-08",
-          "exit_date": "2024-07-09",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-10",
-          "exit_date": "2024-07-11",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-15",
-          "exit_date": "2024-07-16",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-07-17",
-          "exit_date": "2024-07-24",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-25",
-          "exit_date": "2024-07-28",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-29",
-          "exit_date": "2024-07-30",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-31",
-          "exit_date": "2024-08-01",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-08-05",
-          "exit_date": "2024-08-22",
-          "direction": "bullish",
-          "rr": 7.554797228522596,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-08-26",
-          "exit_date": "2024-08-27",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-08-28",
-          "exit_date": "2024-08-29",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-02",
-          "exit_date": "2024-09-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-04",
-          "exit_date": "2024-09-05",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-09",
-          "exit_date": "2024-09-10",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-11",
-          "exit_date": "2024-09-12",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-16",
-          "exit_date": "2024-09-17",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-18",
-          "exit_date": "2024-09-19",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-23",
-          "exit_date": "2024-09-24",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-25",
-          "exit_date": "2024-09-26",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-30",
-          "exit_date": "2024-10-01",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-10-02",
-          "exit_date": "2024-10-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-10-07",
-          "exit_date": "2024-10-08",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-10-09",
-          "exit_date": "2024-10-10",
+          "exit_date": "2024-10-07",
           "direction": "bullish",
           "rr": 0.0,
           "exit_reason": "TP1+Trail"
         }
       ],
-      "notes": "Backtest Summary - AUD_USD (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 29\nWin rate: 6.9%\nTotal profit: +$4,655 (+4.7%)\nMax drawdown: -4.0%\nExpectancy: +0.16R / trade\nTP1+Trail (23), TP2 (2), TP3 (0), SL (4)\nHolidays skipped: 14\nPrice validations adjusted: 28",
+      "notes": "Backtest Summary - AUD_USD (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 1\nWin rate: 0.0%\nTotal profit: +$0 (+0.0%)\nMax drawdown: -0.0%\nExpectancy: +0.00R / trade\nTP1+Trail (1), TP2 (0), TP3 (0), SL (0)\nHolidays skipped: 1\nPrice validations adjusted: 2",
       "account_size": 100000,
       "risk_per_trade_pct": 0.01,
-      "holidays_skipped": 14,
-      "price_validation_adjusted": 28
+      "holidays_skipped": 1,
+      "price_validation_adjusted": 2,
+      "params": {
+        "min_confluence": 4,
+        "min_quality_factors": 2,
+        "atr_sl_multiplier": 1.0,
+        "atr_tp1_multiplier": 1.5,
+        "atr_tp2_multiplier": 2.5,
+        "atr_tp3_multiplier": 4.0
+      }
     },
     {
       "asset": "NZD_USD",
       "period": "2024-01-01 - 2024-11-28",
-      "total_trades": 44,
-      "win_rate": 9.090909090909092,
-      "net_return_pct": -8.480227868588079,
-      "total_profit_usd": -8480.22786858808,
-      "max_drawdown_pct": 11.643406932756305,
-      "avg_rr": -0.19273245155882,
-      "tp1_trail_hits": 25,
-      "tp2_hits": 4,
+      "total_trades": 0,
+      "win_rate": 0.0,
+      "net_return_pct": 0.0,
+      "total_profit_usd": 0.0,
+      "max_drawdown_pct": 0.0,
+      "avg_rr": 0.0,
+      "tp1_trail_hits": 0,
+      "tp2_hits": 0,
       "tp3_hits": 0,
-      "sl_hits": 15,
-      "trades": [
-        {
-          "entry_date": "2024-01-02",
-          "exit_date": "2024-01-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-01-04",
-          "exit_date": "2024-01-07",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-01-08",
-          "exit_date": "2024-01-09",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-01-10",
-          "exit_date": "2024-01-11",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-01-15",
-          "exit_date": "2024-02-19",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-02-20",
-          "exit_date": "2024-02-21",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-02-22",
-          "exit_date": "2024-02-25",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-02-26",
-          "exit_date": "2024-02-27",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-02-28",
-          "exit_date": "2024-03-07",
-          "direction": "bullish",
-          "rr": 1.0999999999999965,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-03-11",
-          "exit_date": "2024-03-18",
-          "direction": "bearish",
-          "rr": 1.0999999999999963,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-03-19",
-          "exit_date": "2024-03-20",
-          "direction": "bearish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-03-21",
-          "exit_date": "2024-03-24",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-03-25",
-          "exit_date": "2024-03-26",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-03-27",
-          "exit_date": "2024-03-28",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-04-02",
-          "exit_date": "2024-04-03",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-04-04",
-          "exit_date": "2024-04-14",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-04-15",
-          "exit_date": "2024-04-16",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-04-17",
-          "exit_date": "2024-04-18",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-04-22",
-          "exit_date": "2024-04-29",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-04-30",
-          "exit_date": "2024-06-02",
-          "direction": "bullish",
-          "rr": 2.356593067243696,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-06-03",
-          "exit_date": "2024-06-04",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-05",
-          "exit_date": "2024-06-06",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-10",
-          "exit_date": "2024-06-11",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-06-12",
-          "exit_date": "2024-06-27",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-01",
-          "exit_date": "2024-07-09",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-10",
-          "exit_date": "2024-07-18",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-22",
-          "exit_date": "2024-07-23",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-24",
-          "exit_date": "2024-07-25",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-29",
-          "exit_date": "2024-07-30",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        },
-        {
-          "entry_date": "2024-07-31",
-          "exit_date": "2024-08-20",
-          "direction": "bullish",
-          "rr": 1.9631790641682323,
-          "exit_reason": "TP2"
-        },
-        {
-          "entry_date": "2024-08-21",
-          "exit_date": "2024-08-22",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-08-26",
-          "exit_date": "2024-08-27",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-08-28",
-          "exit_date": "2024-08-29",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-02",
-          "exit_date": "2024-09-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-04",
-          "exit_date": "2024-09-05",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-09",
-          "exit_date": "2024-09-10",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-11",
-          "exit_date": "2024-09-12",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-16",
-          "exit_date": "2024-09-17",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-18",
-          "exit_date": "2024-09-19",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-23",
-          "exit_date": "2024-09-24",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-25",
-          "exit_date": "2024-09-26",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-09-30",
-          "exit_date": "2024-10-01",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-10-02",
-          "exit_date": "2024-10-03",
-          "direction": "bullish",
-          "rr": 0.0,
-          "exit_reason": "TP1+Trail"
-        },
-        {
-          "entry_date": "2024-10-07",
-          "exit_date": "2024-11-21",
-          "direction": "bullish",
-          "rr": -1.0,
-          "exit_reason": "SL"
-        }
-      ],
-      "notes": "Backtest Summary - NZD_USD (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 44\nWin rate: 9.1%\nTotal profit: +$-8,480 (+-8.5%)\nMax drawdown: -11.6%\nExpectancy: -0.19R / trade\nTP1+Trail (25), TP2 (4), TP3 (0), SL (15)\nHolidays skipped: 18\nPrice validations adjusted: 42",
+      "sl_hits": 0,
+      "trades": [],
+      "notes": "Backtest Summary - NZD_USD (2024-01-01 - 2024-11-28, 100K 5%ers model)\nTrades: 0\nWin rate: 0.0%\nTotal profit: +$0 (+0.0%)\nMax drawdown: -0.0%\nExpectancy: +0.00R / trade\nTP1+Trail (0), TP2 (0), TP3 (0), SL (0)\nHolidays skipped: 1\nPrice validations adjusted: 1",
       "account_size": 100000,
       "risk_per_trade_pct": 0.01,
-      "holidays_skipped": 18,
-      "price_validation_adjusted": 42
+      "holidays_skipped": 1,
+      "price_validation_adjusted": 1,
+      "params": {
+        "min_confluence": 4,
+        "min_quality_factors": 2,
+        "atr_sl_multiplier": 1.0,
+        "atr_tp1_multiplier": 1.5,
+        "atr_tp2_multiplier": 2.5,
+        "atr_tp3_multiplier": 4.0
+      }
     }
   ],
   "summary": {
     "total_assets": 7,
     "passing": 0,
-    "avg_return": -3.7034562475317565
+    "avg_return": -0.8540187177215677
   }
 }

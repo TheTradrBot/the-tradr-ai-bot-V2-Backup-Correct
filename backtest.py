@@ -428,8 +428,7 @@ def run_backtest(asset: str, period: str) -> Dict:
             "notes": "No candles found in requested period.",
         }
 
-    params = get_default_params()
-    params.require_confirmation_for_active = False
+    params = get_default_params(asset)
     
     signals = generate_signals(
         candles=daily,
