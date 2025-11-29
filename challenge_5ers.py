@@ -386,6 +386,46 @@ def find_swing_points(candles: List[Dict], lookback: int = 5) -> Tuple[List[Dict
     return swing_highs, swing_lows
 
 
+def get_htf_bias(symbol: str, target_date: str) -> Dict:
+    """Get Higher Timeframe bias from Weekly/Daily structure."""
+    try:
+        daily_candles = fetch_candles(symbol, count=100, granularity='D')
+        weekly_candles = fetch_candles(symbol, count=30, granularity='W')
+        
+        if len(daily_candles) < 30 or len(weekly_candles) < 10:
+            return {'bias': 'NEUTRAL', 'zones': []}
+        
+        d_highs, d_lows = find_swing_points(daily_candles, lookback=3)
+        w_highs, w_lows = find_swing_points(weekly_candles, lookback=2)
+        
+        w_structure = detect_market_structure(w_highs, w_lows, len(weekly_candles) - 1)
+        d_structure = detect_market_structure(d_highs, d_lows, len(daily_candles) - 1)
+        
+        if w_structure['bias'] == 'BULLISH' and d_structure['bias'] == 'BULLISH':
+            bias = 'STRONG_BULLISH'
+        elif w_structure['bias'] == 'BEARISH' and d_structure['bias'] == 'BEARISH':
+            bias = 'STRONG_BEARISH'
+        elif w_structure['bias'] == 'BULLISH' or d_structure['bias'] == 'BULLISH':
+            bias = 'BULLISH'
+        elif w_structure['bias'] == 'BEARISH' or d_structure['bias'] == 'BEARISH':
+            bias = 'BEARISH'
+        else:
+            bias = 'NEUTRAL'
+        
+        daily_demand = find_demand_zones(daily_candles, d_lows)
+        daily_supply = find_supply_zones(daily_candles, d_highs)
+        
+        zones = []
+        for z in daily_demand[-5:]:
+            zones.append({'type': 'demand', 'high': z['high'], 'low': z['low'], 'strength': z['strength']})
+        for z in daily_supply[-5:]:
+            zones.append({'type': 'supply', 'high': z['high'], 'low': z['low'], 'strength': z['strength']})
+        
+        return {'bias': bias, 'zones': zones, 'daily_structure': d_structure, 'weekly_structure': w_structure}
+    except Exception:
+        return {'bias': 'NEUTRAL', 'zones': []}
+
+
 def detect_market_structure(swing_highs: List[Dict], swing_lows: List[Dict], current_idx: int) -> Dict:
     """Detect market structure: HH/HL (bullish) or LH/LL (bearish)."""
     recent_highs = [h for h in swing_highs if h['idx'] < current_idx][-4:]

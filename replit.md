@@ -15,44 +15,47 @@ Blueprint Trader AI is an automated trading signal bot designed to identify high
 - **Risk Per Trade**: 2.5% ($250 per trade)
 - **Maximum Trades Per Day**: 12
 
-### CURRENT OPTIMIZED Strategy (Active) - Regime-Aware Multi-Strategy
-The strategy uses market regime detection to apply different trading approaches:
+### CURRENT OPTIMIZED Strategy (Active) - V3 HTF Confluence + Archer EMA
+The strategy uses market structure and EMA crossovers for trend identification:
 
-**Regime Detection:**
-- **TRENDING**: Price range >3% with EMA divergence >0.5%
-- **RANGING**: Price range <1.5%
-- **VOLATILE**: All other conditions
+**Strategy Components:**
+- **HTF S/R**: Swing highs/lows identified from 4H candles
+- **Market Structure**: HH/HL (bullish) or LH/LL (bearish) pattern detection
+- **Supply/Demand Zones**: Identified at swing points with impulse move validation
+- **EMA 21/86**: Archer-style trend filter (crossover + pullback entries)
+- **3-Candle Rule**: Entry confirmation when price holds in zone for 3 candles
+- **Structure-based TPs**: Prior swing highs/lows used as take profit targets
 
-**Strategy per Regime:**
-| Regime | Entry Logic | R:R | ATR Mult | Notes |
-|--------|-------------|-----|----------|-------|
-| TRENDING | EMA crossover + momentum | 3.0:1 | 0.5x | Ride trends |
-| RANGING | RSI extremes (<30/>70) | 1.5:1 | 0.8x | Mean reversion |
-| VOLATILE | Breakout candles (>60% body) | 2.5:1 | 0.6x | Momentum plays |
-| FALLBACK | Extreme RSI/EMA bounce | 2.0:1 | 0.7x | Catch opportunities |
-
-**SMC Confluence Filters:**
-- Order Blocks (OB), Fair Value Gaps (FVG), Liquidity Sweeps
+**Entry Types:**
+| Entry Type | Conditions | Confluence |
+|------------|------------|------------|
+| Zone Entry | Price in demand/supply zone + 3-candle hold | HTF + EMA + Zone + Confirmation |
+| EMA Cross | Fresh EMA 21/86 crossover | HTF + EMA Cross |
+| EMA Pullback | Price near EMA 21 in trend | HTF + EMA Pullback |
+| Trend Continuation | Price above/below EMA in trend | EMA Trend Continuation |
+| Strong Candle | 70%+ body candle in trend | Strong Candle |
 
 ### Latest Backtest Results (Sep 2024 - Oct 2025)
 | Period | Total Net | Avg Monthly | Pass Rate | Best Month | $3k+ Months |
 |--------|-----------|-------------|-----------|------------|-------------|
-| 14 Months | **+$13,798** | **+$986** | 21% (3/14) | +$8,067 (Oct 2025) | 3/14 (21%) |
+| 14 Months | **+$27,253** | **+$1,947** | 14% (2/14) | +$20,064 (Mar 2025) | 2/14 (14%) |
 
 ### Monthly Breakdown
 | Month | Trades | Win Rate | Net P/L | Result |
 |-------|--------|----------|---------|--------|
-| Oct 2025 | 35 | 54.3% | +$8,067 | **PASSED** |
-| Nov 2024 | 66 | 39.4% | +$6,168 | **PASSED** |
-| Jan 2025 | 29 | 48.3% | +$4,605 | **PASSED** |
-| May 2025 | 37 | 37.8% | +$1,847 | Step 1 only |
-| Sep 2025 | 38 | 34.2% | +$112 | Step 1 only |
+| Oct 2024 | 62 | 37.1% | +$13,315 | **PASSED** |
+| Mar 2025 | 48 | 45.8% | +$20,064 | **PASSED** |
+| Apr 2025 | 22 | 36.4% | +$2,459 | Step 2 only |
+| Jun 2025 | 17 | 29.4% | -$154 | Failed |
+
+### Data Limitation
+**OANDA practice API only provides 14 months of historical data** (Sep 2024 - Oct 2025). No 2023 data is available through this API.
 
 ### Key Findings
-- **Trade Volume Matters**: Months with 29+ trades and 33%+ win rate tend to be profitable
+- **Trade Volume Matters**: Months with 40+ trades and 35%+ win rate hit $10k+ profits
 - **Low Trade Months**: Months with <10 trades consistently lose (~-$800)
-- **Best Configuration**: 2.5% risk, 12 trades/day max, multi-strategy approach
-- **Mathematical Reality**: $3k+ profit EVERY month is not achievable due to market variance
+- **Best Configuration**: 2.5% risk, 15 trades/day max, cooldown=3
+- **Mathematical Reality**: 100% monthly pass rate is not achievable due to market variance and data limitations
 
 ### Trading Fees (Per Asset)
 | Asset Type | Spread | Commission | Avg Fee/Trade |
