@@ -123,17 +123,11 @@ Example: $250 risk / (15 pips × $10/pip) = 1.67 lots
 
 **Total Portfolio Return: +$1,075,000 (+1075%)**
 
-### Strategy Files
-- `strategy_smc.py` - SMC (Smart Money Concepts) optimized strategy with Order Blocks, FVG, Liquidity Sweeps
-- `strategy_final.py` - RSI mean reversion multi-strategy implementation
-- `strategy_optimized.py` - RSI(2) mean reversion base strategy
-- `strategy_v3.py` - Original V3 S/R + Fib strategy
-
-### SMC Components
-- **Order Blocks (OB)**: Last bullish/bearish candle before impulse move
-- **Fair Value Gaps (FVG)**: 3-candle price imbalance zones
-- **Liquidity Sweeps**: Price breaks swing high/low then reverses
-- **Trend Filter**: EMA-based trend confirmation
+### Strategy Files (Cleaned Up)
+- `strategy_highwin.py` - **ACTIVE** - BB+RSI(2) mean reversion with 4R targets (challenge-validated)
+- `strategy.py` - Live scanning wrapper that uses strategy_highwin for Discord bot
+- `challenge_simulator.py` - Simulates 5%ers challenge rules with proper position sizing
+- `challenge_5ers.py` - Challenge backtest runner
 
 ## User Preferences
 
