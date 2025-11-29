@@ -21,11 +21,20 @@ Blueprint Trader AI is an automated trading signal bot designed to identify high
 - **Trend Filter**: EMA(50)
 - **Entry Filters**: RSI confirmation + 2 confluence factors (OB/FVG/SWEEP)
 
-### Backtest Results
-| Month | Trades | Win Rate | Max DD | P/L | Result |
-|-------|--------|----------|--------|-----|--------|
-| Sep 2024 | 13 | 69.2% | 0.0% | +$1,500 | Step 1 in 4 days |
-| Oct 2024 | 37 | 51.4% | 6.7% | +$1,627 | **PASSED in 15 days** |
+### Backtest Results (Including Fees)
+| Month | Trades | Win Rate | Gross P/L | Fees | Net P/L | Result |
+|-------|--------|----------|-----------|------|---------|--------|
+| Sep 2024 | 13 | 69.2% | +$1,495 | $157 | +$1,338 | Step 1 in 4 days |
+| Oct 2024 | 49 | 51.0% | +$2,056 | $495 | +$1,561 | **PASSED in 19 days** |
+
+### Trading Fees (Per Asset)
+| Asset Type | Spread | Commission | Avg Fee/Trade |
+|------------|--------|------------|---------------|
+| Forex Majors | 1-1.5 pips | $7/lot | ~$12-17 |
+| Cross Pairs | 1.5-2 pips | $7/lot | ~$15-20 |
+| XAU/USD | 25 pips | $6/lot | ~$3.50 |
+| Crypto | 0.20% | - | ~$20-25 |
+| Indices | 0.5-1 pt | $0 | ~$0.50 |
 
 ### Assets Traded (15 total)
 Forex: EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, NZD/USD, USD/CAD, EUR/GBP, EUR/JPY, GBP/JPY

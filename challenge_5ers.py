@@ -80,6 +80,52 @@ ASSET_CONFIGS_HIGH_WINRATE = {
 
 ASSET_CONFIGS = ASSET_CONFIGS_HIGH_WINRATE
 
+ASSET_FEES = {
+    'EUR_USD': {'spread_pips': 1.0, 'commission': 7.0},
+    'GBP_USD': {'spread_pips': 1.2, 'commission': 7.0},
+    'USD_JPY': {'spread_pips': 1.0, 'commission': 7.0},
+    'USD_CHF': {'spread_pips': 1.5, 'commission': 7.0},
+    'AUD_USD': {'spread_pips': 1.2, 'commission': 7.0},
+    'NZD_USD': {'spread_pips': 1.5, 'commission': 7.0},
+    'USD_CAD': {'spread_pips': 1.5, 'commission': 7.0},
+    'EUR_GBP': {'spread_pips': 1.5, 'commission': 7.0},
+    'EUR_JPY': {'spread_pips': 1.5, 'commission': 7.0},
+    'GBP_JPY': {'spread_pips': 2.0, 'commission': 7.0},
+    'XAU_USD': {'spread_pips': 25.0, 'commission': 6.0},
+    'BTC_USD': {'fee_pct': 0.20},
+    'ETH_USD': {'fee_pct': 0.20},
+    'SPX500_USD': {'spread_points': 0.5, 'commission': 0.0},
+    'NAS100_USD': {'spread_points': 1.0, 'commission': 0.0},
+}
+
+
+def calculate_trade_fee(symbol: str, lot_size: float, entry_price: float) -> float:
+    if symbol not in ASSET_FEES:
+        return 0.0
+    
+    fee_config = ASSET_FEES[symbol]
+    
+    if 'fee_pct' in fee_config:
+        notional = entry_price * lot_size
+        return notional * (fee_config['fee_pct'] / 100)
+    
+    if symbol not in ASSET_CONFIGS:
+        return 0.0
+    
+    asset_cfg = ASSET_CONFIGS[symbol]
+    pip_value = asset_cfg.get('pip_value', 10.0)
+    
+    if 'spread_pips' in fee_config:
+        spread_cost = fee_config['spread_pips'] * pip_value * lot_size
+    elif 'spread_points' in fee_config:
+        spread_cost = fee_config['spread_points'] * lot_size
+    else:
+        spread_cost = 0.0
+    
+    commission = fee_config.get('commission', 0.0) * lot_size
+    
+    return spread_cost + commission
+
 
 @dataclass
 class ChallengeState:
@@ -406,6 +452,7 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
     processed_dates = set()
     step1_pass_date = None
     step2_pass_date = None
+    total_fees = 0.0
     
     for sig in all_signals:
         if state.failed:
@@ -439,22 +486,27 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
         lot_size = calculate_lot_size(risk_usd, sig['sl_pips'], sig['pip_value'])
         potential_profit = risk_usd * sig['tp_rr']
         
+        fee = calculate_trade_fee(sig['symbol'], lot_size, sig['entry'])
+        
         if not check_daily_drawdown(state, risk_usd):
             continue
         if not check_max_drawdown(state, risk_usd):
             continue
         
         if sig['result'] == 'TP':
-            pnl = potential_profit
+            gross_pnl = potential_profit
         else:
-            pnl = -risk_usd
+            gross_pnl = -risk_usd
+        
+        pnl = gross_pnl - fee
+        total_fees += fee
         
         state.current_balance += pnl
         state.current_equity = state.current_balance
         state.daily_pnl += pnl
         state.trades_today += 1
         state.total_trades += 1
-        if pnl > 0:
+        if gross_pnl > 0:
             state.winning_trades += 1
         
         trade = {
@@ -469,6 +521,8 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
             'lot_size': lot_size,
             'risk_usd': round(risk_usd, 2),
             'result': sig['result'],
+            'gross_pnl': round(gross_pnl, 2),
+            'fee': round(fee, 2),
             'pnl': round(pnl, 2),
             'balance': round(state.current_balance, 2),
             'confluence': '+'.join(sig['confluence']),
@@ -524,6 +578,8 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
     total_pnl = state.current_balance - 10000
     win_rate = (state.winning_trades / state.total_trades * 100) if state.total_trades > 0 else 0
     
+    gross_pnl = sum(t.get('gross_pnl', t['pnl']) for t in all_trades)
+    
     return {
         'month': month,
         'year': year,
@@ -539,6 +595,8 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
         'win_rate': win_rate,
         'profitable_days': state.profitable_days,
         'final_balance': state.current_balance,
+        'gross_pnl': gross_pnl,
+        'total_fees': total_fees,
         'total_pnl': total_pnl,
         'return_pct': (total_pnl / 10000) * 100,
         'trades': all_trades,
@@ -591,8 +649,11 @@ def format_challenge_result(result: Dict) -> discord.Embed:
     embed.add_field(name="Win Rate", value=f"{result['win_rate']:.1f}%", inline=True)
     embed.add_field(name="Profitable Days", value=str(result['profitable_days']), inline=True)
     
+    gross_str = f"+${result['gross_pnl']:,.2f}" if result['gross_pnl'] >= 0 else f"-${abs(result['gross_pnl']):,.2f}"
     pnl_str = f"+${result['total_pnl']:,.2f}" if result['total_pnl'] >= 0 else f"-${abs(result['total_pnl']):,.2f}"
-    embed.add_field(name="Total P/L", value=pnl_str, inline=True)
+    embed.add_field(name="Gross P/L", value=gross_str, inline=True)
+    embed.add_field(name="Total Fees", value=f"-${result['total_fees']:,.2f}", inline=True)
+    embed.add_field(name="Net P/L", value=pnl_str, inline=True)
     embed.add_field(name="Return", value=f"{result['return_pct']:+.1f}%", inline=True)
     
     if result['failed']:
@@ -619,13 +680,14 @@ def export_challenge_trades_csv(result: Dict, filename: str = None) -> str:
     with open(filename, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['Trade#', 'Date', 'Symbol', 'Direction', 'Entry', 'Stop Loss', 'Take Profit', 
-                        'Lot Size', 'Risk ($)', 'Result', 'P/L ($)', 'Balance', 'Confluence', 'Step'])
+                        'Lot Size', 'Risk ($)', 'Result', 'Gross P/L', 'Fee', 'Net P/L', 'Balance', 'Confluence', 'Step'])
         
         for t in result['trades']:
             writer.writerow([
                 t['trade_num'], t['date'], t['symbol'], t['direction'], t['entry'],
                 t['stop_loss'], t['take_profit'], t['lot_size'], t['risk_usd'],
-                t['result'], t['pnl'], t['balance'], t['confluence'], t['step']
+                t['result'], t.get('gross_pnl', t['pnl']), t.get('fee', 0), t['pnl'], 
+                t['balance'], t['confluence'], t['step']
             ])
     
     return filename
