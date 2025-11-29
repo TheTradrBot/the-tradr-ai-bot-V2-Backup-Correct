@@ -23,12 +23,12 @@ from datetime import datetime
 @dataclass
 class RiskConfig:
     """Risk management configuration."""
-    base_risk_pct: float = 4.5
-    reduced_risk_pct: float = 2.0
+    base_risk_pct: float = 3.0
+    reduced_risk_pct: float = 1.5
     min_risk_pct: float = 0.5
     
     max_dd_pct: float = 10.0
-    daily_dd_pct: float = 5.0
+    daily_dd_pct: float = 4.0
     
     dd_threshold_for_reduction: float = 2.5
     dd_threshold_for_min: float = 5.0
@@ -38,7 +38,9 @@ class RiskConfig:
     sl_to_profit_buffer_r: float = 0.1
     
     max_concurrent_trades: int = 3
-    max_total_exposure_pct: float = 8.0
+    max_total_exposure_pct: float = 7.0
+    
+    fee_per_trade_pct: float = 0.1
 
 
 @dataclass
@@ -198,6 +200,8 @@ def simulate_with_concurrent_tracking(
         
         trade_hits_tp1 = highest_r >= config.partial_tp_r
         
+        fee_usd = risk_usd * (config.fee_per_trade_pct / 100)
+        
         if trade_hits_tp1 and result != 'LOSS':
             partial_profit = (risk_usd * config.partial_close_pct / 100) * config.partial_tp_r
             remaining_risk = risk_usd * (1 - config.partial_close_pct / 100)
@@ -207,11 +211,11 @@ def simulate_with_concurrent_tracking(
             else:
                 remaining_pnl = remaining_risk * config.sl_to_profit_buffer_r
             
-            pnl_usd = partial_profit + remaining_pnl
+            pnl_usd = partial_profit + remaining_pnl - fee_usd
             
             effective_risk_during_trade = risk_usd * 0.3
         else:
-            pnl_usd = risk_usd * pnl_r
+            pnl_usd = (risk_usd * pnl_r) - fee_usd
             effective_risk_during_trade = risk_usd
         
         open_risk_usd += effective_risk_during_trade
@@ -374,11 +378,10 @@ def find_optimal_config(all_trades: List[Dict]) -> Dict:
     """Find optimal risk configuration by testing multiple settings."""
     
     configs_to_test = [
-        RiskConfig(base_risk_pct=2.5, reduced_risk_pct=1.5, min_risk_pct=0.5, max_total_exposure_pct=7.0),
-        RiskConfig(base_risk_pct=3.0, reduced_risk_pct=1.5, min_risk_pct=0.5, max_total_exposure_pct=7.0),
-        RiskConfig(base_risk_pct=3.5, reduced_risk_pct=2.0, min_risk_pct=0.5, max_total_exposure_pct=8.0),
-        RiskConfig(base_risk_pct=4.0, reduced_risk_pct=2.0, min_risk_pct=0.5, max_total_exposure_pct=8.0),
-        RiskConfig(base_risk_pct=4.5, reduced_risk_pct=2.0, min_risk_pct=0.5, max_total_exposure_pct=8.0),
+        RiskConfig(base_risk_pct=2.0, reduced_risk_pct=1.0, min_risk_pct=0.5, max_total_exposure_pct=6.0, daily_dd_pct=4.0),
+        RiskConfig(base_risk_pct=2.5, reduced_risk_pct=1.5, min_risk_pct=0.5, max_total_exposure_pct=6.0, daily_dd_pct=4.0),
+        RiskConfig(base_risk_pct=3.0, reduced_risk_pct=1.5, min_risk_pct=0.5, max_total_exposure_pct=7.0, daily_dd_pct=4.0),
+        RiskConfig(base_risk_pct=3.5, reduced_risk_pct=2.0, min_risk_pct=0.5, max_total_exposure_pct=7.0, daily_dd_pct=4.0),
     ]
     
     best_config = None

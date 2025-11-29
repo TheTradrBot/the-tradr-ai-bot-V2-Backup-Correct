@@ -25,6 +25,8 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 - **Reduced Risk**: 1.5% ($150/trade) at 2.5%+ drawdown
 - **Minimum Risk**: 0.5% ($50/trade) at 5%+ drawdown
 - **Max Total Exposure**: 7% (ensures multiple SLs can't breach 10% DD)
+- **Daily Loss Limit**: 4% internal cap (safety buffer under 5% rule)
+- **Fees**: 0.1% per trade deducted from P/L
 - When trades hit TP1, SL moves to BE reducing effective risk to ~30%
 
 ## CURRENT LIVE STRATEGY: V3 Pro (November 2025)
