@@ -12,20 +12,29 @@ Blueprint Trader AI is an automated trading signal bot designed to identify high
 - **Maximum Drawdown**: 10% ($1,000 - cannot drop below $9,000)
 - **Daily Drawdown**: 5% ($500 max loss per day)
 - **Minimum Profitable Days**: 3 days required per step
-- **Risk Per Trade**: 1.5% ($150 per trade)
+- **Risk Per Trade**: 2.5% ($250 per trade)
 - **Maximum Trades Per Day**: 5
 
-### HIGH WIN RATE Strategy (Active)
-- **R:R Ratio**: 1.5:1 (easier to hit TP)
-- **Stop Loss**: 1x ATR (gives trades room)
+### CURRENT OPTIMIZED Strategy (Active)
+- **R:R Ratio**: 2.0:1 (balanced profit capture)
+- **Stop Loss**: 0.6x ATR (tighter stops)
+- **Risk per Trade**: 2.5% ($250 per trade)
 - **Trend Filter**: EMA(50)
-- **Entry Filters**: RSI confirmation + 2 confluence factors (OB/FVG/SWEEP)
+- **Entry Filters**: RSI 60/40 + 1 confluence factor (OB/FVG/SWEEP)
 
-### Backtest Results (Including Fees)
-| Month | Trades | Win Rate | Gross P/L | Fees | Net P/L | Result |
-|-------|--------|----------|-----------|------|---------|--------|
-| Sep 2024 | 13 | 69.2% | +$1,495 | $157 | +$1,338 | Step 1 in 4 days |
-| Oct 2024 | 49 | 51.0% | +$2,056 | $495 | +$1,561 | **PASSED in 19 days** |
+### Backtest Results (15 Months, Including Fees)
+| Period | Avg Monthly | Pass Rate | Best Month | Notes |
+|--------|-------------|-----------|------------|-------|
+| 2024-2025 | +$500 | 20% (3/15) | +$3,153 (Feb 2025) | 10 assets traded |
+
+### Monthly Breakdown
+| Month | Trades | Win Rate | Net P/L | Result |
+|-------|--------|----------|---------|--------|
+| Feb 2025 | 20 | 55.0% | +$3,153 | **PASSED (8+2d)** |
+| Oct 2025 | 10 | 70.0% | +$2,697 | **PASSED (6+2d)** |
+| Jul 2025 | 23 | 47.8% | +$1,916 | **PASSED (13+1d)** |
+| Sep 2024 | 10 | 60.0% | +$1,760 | Step 1 only |
+| Dec 2024 | 18 | 44.4% | +$910 | Step 1 only |
 
 ### Trading Fees (Per Asset)
 | Asset Type | Spread | Commission | Avg Fee/Trade |
@@ -36,17 +45,17 @@ Blueprint Trader AI is an automated trading signal bot designed to identify high
 | Crypto | 0.20% | - | ~$20-25 |
 | Indices | 0.5-1 pt | $0 | ~$0.50 |
 
-### Assets Traded (15 total)
-Forex: EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, NZD/USD, USD/CAD, EUR/GBP, EUR/JPY, GBP/JPY
+### Assets Traded (10 total)
+Forex: EUR/USD, GBP/USD, USD/CHF, AUD/USD, USD/CAD, EUR/GBP, GBP/JPY
 Metals: XAU/USD (Gold)
-Crypto: BTC/USD, ETH/USD
-Indices: SPX500, NAS100
+Crypto: ETH/USD
+Indices: NAS100
 
 ### Lot Size Formula
 ```
 lot_size = risk_usd / (sl_pips × pip_value)
 ```
-Example: $150 risk / (15 pips × $10/pip) = 1.0 lots
+Example: $250 risk / (15 pips × $10/pip) = 1.67 lots
 
 ### Discord Commands
 - `/pass <month> <year>`: Check if challenge would be passed for given month
