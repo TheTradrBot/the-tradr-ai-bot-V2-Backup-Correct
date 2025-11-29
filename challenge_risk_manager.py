@@ -277,6 +277,7 @@ def run_monthly_challenge_simulation(
         
         passed = (
             result['step1_passed'] and 
+            result['step2_passed'] and
             not result['blown'] and 
             result['profitable_days'] >= 3
         )
@@ -319,16 +320,17 @@ def find_optimal_config(all_trades: List[Dict]) -> Dict:
     """Find optimal risk configuration by testing multiple settings."""
     
     configs_to_test = [
-        RiskConfig(base_risk_pct=2.5, reduced_risk_pct=1.5, min_risk_pct=1.0, dd_threshold_for_reduction=4.0, dd_threshold_for_min=7.0),
-        RiskConfig(base_risk_pct=3.0, reduced_risk_pct=2.0, min_risk_pct=1.0, dd_threshold_for_reduction=4.0, dd_threshold_for_min=7.0),
-        RiskConfig(base_risk_pct=3.5, reduced_risk_pct=2.0, min_risk_pct=1.0, dd_threshold_for_reduction=4.0, dd_threshold_for_min=7.0),
-        RiskConfig(base_risk_pct=4.0, reduced_risk_pct=2.5, min_risk_pct=1.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
-        RiskConfig(base_risk_pct=4.0, reduced_risk_pct=2.0, min_risk_pct=1.0, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
-        RiskConfig(base_risk_pct=4.5, reduced_risk_pct=2.5, min_risk_pct=1.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
+        RiskConfig(base_risk_pct=2.5, reduced_risk_pct=1.5, min_risk_pct=0.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
+        RiskConfig(base_risk_pct=3.0, reduced_risk_pct=1.5, min_risk_pct=0.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
+        RiskConfig(base_risk_pct=3.5, reduced_risk_pct=1.5, min_risk_pct=0.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
+        RiskConfig(base_risk_pct=4.0, reduced_risk_pct=2.0, min_risk_pct=0.5, dd_threshold_for_reduction=3.0, dd_threshold_for_min=6.0),
+        RiskConfig(base_risk_pct=4.5, reduced_risk_pct=2.0, min_risk_pct=0.5, dd_threshold_for_reduction=2.5, dd_threshold_for_min=5.0),
+        RiskConfig(base_risk_pct=5.0, reduced_risk_pct=2.5, min_risk_pct=1.0, dd_threshold_for_reduction=2.5, dd_threshold_for_min=5.0),
     ]
     
     best_config = None
     best_pass_rate = 0
+    best_pnl = 0
     all_results = []
     
     for cfg in configs_to_test:
@@ -342,9 +344,14 @@ def find_optimal_config(all_trades: List[Dict]) -> Dict:
             'total_pnl': result['total_pnl'],
         })
         
-        if result['pass_rate'] > best_pass_rate and result['months_blown'] == 0:
-            best_pass_rate = result['pass_rate']
-            best_config = cfg
+        if result['months_blown'] == 0:
+            if result['pass_rate'] > best_pass_rate:
+                best_pass_rate = result['pass_rate']
+                best_config = cfg
+                best_pnl = result['total_pnl']
+            elif result['pass_rate'] == best_pass_rate and result['total_pnl'] > best_pnl:
+                best_config = cfg
+                best_pnl = result['total_pnl']
     
     return {
         'best_config': best_config,

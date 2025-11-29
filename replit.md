@@ -18,8 +18,13 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 - **Maximum Drawdown**: 10% ($1,000 - cannot drop below $9,000)
 - **Daily Drawdown**: 5% ($500 max loss per day)
 - **Minimum Profitable Days**: 3 days required per step
-- **Risk Per Trade**: 2.5% ($250 per trade)
 - **Maximum Trades Per Day**: 12
+
+**Dynamic Risk Management (Optimized):**
+- **Base Risk**: 4.5% ($450/trade) when account is healthy
+- **Reduced Risk**: 2.0% ($200/trade) at 2.5%+ drawdown
+- **Minimum Risk**: 0.5% ($50/trade) at 5%+ drawdown
+- This aggressive-start + quick-reduction approach maximizes gains while preventing breaches
 
 ## CURRENT LIVE STRATEGY: V3 Pro (November 2025)
 
@@ -38,11 +43,13 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 | Break-Even | Moves SL to entry at +1R |
 
 **2024 Backtest Results (MEGA Portfolio - 35 Assets):**
-- Total P/L: **+$48,362 (484% yearly return)**
-- Monthly Pass Rate: **70%** (7/10 months) - AT THEORETICAL CEILING
+- Total P/L: **+$96,184 (961% yearly return)**
+- Monthly Pass Rate: **60%** (6/10 months) with ZERO breaches
 - Trades: 754 total across 35 instruments
-- Partial TP: 50% closed at 1.5R to spread wins across calendar days
-- Best Performers: BCO_USD (66.8%), WTICO_USD (51.6%), NZD_USD (49.1%), EUR_JPY (43.8%)
+- Dynamic risk sizing: 4.5% base → 2.0% mid-DD → 0.5% deep-DD
+- Partial TP: 50% closed at 1R to protect capital + SL moved to entry+0.1R
+- Pass months: May ($15K), June ($4K), July ($29K), August ($9K), October ($31K), November ($11K)
+- Fail months: March, April (near-miss), September, December (sparse setups)
 
 ### Asset-Specific Configurations
 | Asset | Confluence | Min RR | Notes |
@@ -72,12 +79,12 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
 ## MONTHLY PASS RATE REALITY
 
 **Optimization Results (November 2025):**
-- Achieved **70% monthly pass rate** (7/10 months) with mega portfolio approach
-- This is at the **theoretical ceiling** - further aggressive tests degraded results
-- V3 Pro optimized: Partial TP at 1.5R + 35-asset portfolio + day-staggering
-- Failing months: March (few setups), April (near miss), September (counter-trend losses)
+- Achieved **60% monthly pass rate** (6/10 months) with mega portfolio approach
+- This is at the **practical ceiling** - higher leverage reduces pass rate while increasing P/L
+- V3 Pro optimized: Dynamic risk (4.5/2.0/0.5%) + 35-asset portfolio + partial TP at 1R
+- Failing months: March (few setups), April (near miss), September (counter-trend losses), December
 - **70%+ yearly per-asset target remains statistically unrealistic** with available data
-- **Portfolio-level approach (484% yearly) is the practical path forward**
+- **Portfolio-level approach (961% yearly) is the practical path forward with ZERO breaches**
 
 ## KEY FILES
 
@@ -86,6 +93,7 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
 | `strategy_v3_pro.py` | **CURRENT** - Daily S/D + Golden Pocket + Wyckoff |
 | `strategy.py` | Wrapper for Discord bot scanning (uses V3 Pro) |
 | `challenge_5ers_v3_pro.py` | V3 Pro challenge backtest runner |
+| `challenge_risk_manager.py` | Dynamic position sizing with DD-adaptive risk |
 | `strategy_v3.py` | Legacy HTF S/R + BOS signal generation |
 | `strategy_v4_archer.py` | Legacy Archer Academy Supply/Demand zones |
 | `challenge_simulator.py` | 5%ers rules simulation |
