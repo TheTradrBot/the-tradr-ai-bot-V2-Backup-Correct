@@ -1,0 +1,14 @@
+Entry Date,Exit Date,Direction,Entry Price,Stop Loss,Take Profit,R Multiple,Highest R,Result,Confluence,Zone Type,Duration Days,Reasoning
+2025-03-30,2025-04-02,short,1.08154,1.09591,1.036,-1.0,0.26,LOSS,8,supply,3,Price at supply zone | Wyckoff Upthrust detected | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2025-05-07,2025-05-11,short,1.12289,1.13036,1.11542,0.5,1.0,PARTIAL_WIN,6,supply,2,Partial TP at 1.0R
+2025-05-07,2025-05-13,short,1.12289,1.13036,1.0733,0,2.19,BE,6,supply,4,Price at supply zone | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2025-05-11,2025-05-13,short,1.10876,1.1231,1.0733,-1.0,0.0,LOSS,6,supply,2,Price at supply zone | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2025-07-27,2025-07-28,short,1.15887,1.16526,1.15248,0.5,1.0,PARTIAL_WIN,7,supply,1,Partial TP at 1.0R
+2025-07-27,2025-07-29,short,1.15887,1.16526,1.14463,1.61,2.94,WIN,7,supply,2,Price at supply zone | Engulfing pattern | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2025-08-03,2025-08-05,short,1.15726,1.16495,1.14463,-1.0,0.58,LOSS,6,supply,2,Price at supply zone | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2025-09-30,2025-10-06,short,1.17312,1.18109,1.16515,0.5,1.0,PARTIAL_WIN,5,supply,4,Partial TP at 1.0R
+2025-09-30,2025-10-08,short,1.17312,1.18109,1.1574,1.49,2.37,WIN,5,supply,6,Price at supply zone | Rejection candle at zone | Daily trend aligned: bearish | Strong zone (large impulse) | Strong impulse from zone
+2025-10-08,2025-10-09,short,1.15648,1.16174,1.14463,-1.0,0.15,LOSS,6,supply,1,Price at supply zone | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2025-10-12,2025-10-14,short,1.15707,1.16248,1.14463,-1.0,0.52,LOSS,6,supply,2,Price at supply zone | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2025-10-29,2025-10-30,short,1.15653,1.16082,1.15224,0.5,1.0,PARTIAL_WIN,6,supply,1,Partial TP at 1.0R
+2025-10-29,2025-11-06,short,1.15653,1.16082,1.14463,0,2.25,BE,6,supply,6,Price at supply zone | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
