@@ -351,6 +351,10 @@ def get_backtest_with_trades_range(asset: str, start_date: datetime, end_date: d
     Uses V3 Pro strategy - SAME strategy used for live trading signals.
     Results are directly applicable to 5%ers challenge performance.
     
+    IMPORTANT: Includes warmup period for zone calculations:
+    - 3 months of daily data before start_date
+    - 1 year of weekly data before start_date
+    
     Args:
         asset: The asset symbol
         start_date: Start date of the range
@@ -360,47 +364,53 @@ def get_backtest_with_trades_range(asset: str, start_date: datetime, end_date: d
         Dictionary with backtest results including detailed trades
     """
     try:
+        from data import get_ohlcv_range
+        from datetime import timedelta as td
+        
+        warmup_start = start_date - td(days=120)
+        weekly_warmup_start = start_date - td(days=400)
+        
         daily = get_ohlcv(asset, timeframe='D', count=1000)
         weekly = get_ohlcv(asset, timeframe='W', count=400)
         
         if not daily or len(daily) < 50:
             return {"trades": [], "total_trades": 0, "win_rate": 0, "net_pnl": 0, "total_r": 0}
         
-        daily_list = []
-        for c in daily:
-            time_str = c['time'].strftime('%Y-%m-%dT%H:%M:%S') if hasattr(c['time'], 'strftime') else str(c['time'])
-            daily_list.append({
-                'time': time_str,
-                'open': c['open'],
-                'high': c['high'],
-                'low': c['low'],
-                'close': c['close'],
-                'volume': c.get('volume', 0)
-            })
-        
-        weekly_list = []
-        for c in weekly:
-            time_str = c['time'].strftime('%Y-%m-%dT%H:%M:%S') if hasattr(c['time'], 'strftime') else str(c['time'])
-            weekly_list.append({
-                'time': time_str,
-                'open': c['open'],
-                'high': c['high'],
-                'low': c['low'],
-                'close': c['close'],
-                'volume': c.get('volume', 0)
-            })
-        
         def parse_time(time_str):
             try:
+                if hasattr(time_str, 'strftime'):
+                    return time_str
                 return datetime.fromisoformat(time_str.replace('Z', '+00:00').split('+')[0])
             except:
                 return datetime.min
         
-        daily_list = [c for c in daily_list if start_date <= parse_time(c['time']) <= end_date]
+        daily_list = []
+        for c in daily:
+            c_time = parse_time(c['time'])
+            if c_time >= warmup_start and c_time <= end_date:
+                time_str = c['time'].strftime('%Y-%m-%dT%H:%M:%S') if hasattr(c['time'], 'strftime') else str(c['time'])
+                daily_list.append({
+                    'time': time_str,
+                    'open': c['open'],
+                    'high': c['high'],
+                    'low': c['low'],
+                    'close': c['close'],
+                    'volume': c.get('volume', 0)
+                })
         
-        from datetime import timedelta as td
-        min_weekly = start_date.replace(day=1) - td(days=90)
-        weekly_list = [c for c in weekly_list if parse_time(c['time']) >= min_weekly]
+        weekly_list = []
+        for c in weekly:
+            c_time = parse_time(c['time'])
+            if c_time >= weekly_warmup_start and c_time <= end_date:
+                time_str = c['time'].strftime('%Y-%m-%dT%H:%M:%S') if hasattr(c['time'], 'strftime') else str(c['time'])
+                weekly_list.append({
+                    'time': time_str,
+                    'open': c['open'],
+                    'high': c['high'],
+                    'low': c['low'],
+                    'close': c['close'],
+                    'volume': c.get('volume', 0)
+                })
         
         if not daily_list:
             return {"trades": [], "total_trades": 0, "win_rate": 0, "net_pnl": 0, "total_r": 0}
@@ -414,6 +424,22 @@ def get_backtest_with_trades_range(asset: str, start_date: datetime, end_date: d
             partial_tp=True,
             partial_tp_r=1.5
         )
+        
+        if not trades:
+            return {"trades": [], "total_trades": 0, "win_rate": 0, "net_pnl": 0, "total_r": 0}
+        
+        def trade_in_range(t):
+            entry = t.get('entry_time', '')
+            if hasattr(entry, 'strftime'):
+                entry_dt = entry
+            else:
+                try:
+                    entry_dt = datetime.fromisoformat(entry.replace('Z', '+00:00').split('+')[0])
+                except:
+                    return True
+            return start_date <= entry_dt <= end_date
+        
+        trades = [t for t in trades if trade_in_range(t)]
         
         if not trades:
             return {"trades": [], "total_trades": 0, "win_rate": 0, "net_pnl": 0, "total_r": 0}
