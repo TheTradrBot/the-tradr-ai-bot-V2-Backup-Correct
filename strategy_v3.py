@@ -298,8 +298,8 @@ def generate_signal(
     
     htf_bias = get_htf_bias(weekly_candles, daily_candles)
     
-    daily_zones = identify_sr_zones(daily_candles, tolerance_pct=0.004)
-    weekly_zones = identify_sr_zones(weekly_candles, tolerance_pct=0.006)
+    daily_zones = identify_sr_zones(daily_candles, tolerance_pct=0.005)
+    weekly_zones = identify_sr_zones(weekly_candles, tolerance_pct=0.008)
     
     all_zones = daily_zones + weekly_zones
     
