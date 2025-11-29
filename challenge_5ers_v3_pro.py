@@ -86,9 +86,11 @@ def run_v3_pro_backtest_for_asset(
     min_confluence: int = 3,
     risk_per_trade: float = 250.0,
     partial_tp: bool = True,
-    partial_tp_r: float = 1.5
+    partial_tp_r: float = 1.5,
+    start_month: int = 1,
+    end_month: int = 12
 ) -> Dict:
-    """Run V3 Pro backtest for a single asset for a year with AGGRESSIVE settings."""
+    """Run V3 Pro backtest for a single asset for a year with AGGRESSIVE settings. Optionally filter by month range."""
     
     try:
         daily_candles, weekly_candles = fetch_data_for_v3_pro(symbol)
@@ -112,6 +114,18 @@ def run_v3_pro_backtest_for_asset(
             partial_tp=partial_tp,
             partial_tp_r=partial_tp_r
         )
+        
+        if start_month > 1 or end_month < 12:
+            filtered_trades = []
+            for t in trades:
+                entry_time_str = t['entry_time']
+                try:
+                    month = int(entry_time_str.split('-')[1])
+                    if start_month <= month <= end_month:
+                        filtered_trades.append(t)
+                except (ValueError, IndexError):
+                    pass
+            trades = filtered_trades
         
         stats = calculate_backtest_stats(trades)
         
