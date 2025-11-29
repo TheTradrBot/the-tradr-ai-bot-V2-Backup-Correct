@@ -579,34 +579,46 @@ def generate_v3_signals(
             max_tp2_rr = 2.0
             max_tp3_rr = 3.0
             
+            fib_direction_matches = fib_levels and fib_levels.get("direction") == direction
+            
             if direction == "bullish":
-                if fib_levels and fib_levels.get("ext_025"):
+                if fib_direction_matches and fib_levels.get("ext_025"):
                     tp1_fib = fib_levels["ext_025"]
                     tp2_fib = fib_levels["ext_068"]
                     tp3_fib = fib_levels["ext_100"]
-                    tp1 = min(tp1_fib, entry + risk * max_tp1_rr)
-                    tp2 = min(tp2_fib, entry + risk * max_tp2_rr)
-                    tp3 = min(tp3_fib, entry + risk * max_tp3_rr)
+                    if tp1_fib > entry:
+                        tp1 = min(tp1_fib, entry + risk * max_tp1_rr)
+                        tp2 = min(tp2_fib, entry + risk * max_tp2_rr)
+                        tp3 = min(tp3_fib, entry + risk * max_tp3_rr)
+                    else:
+                        tp1 = entry + risk * 1.5
+                        tp2 = entry + risk * 2.0
+                        tp3 = entry + risk * 3.0
                 else:
-                    tp1 = entry + risk * 1.0
-                    tp2 = entry + risk * 1.5
-                    tp3 = entry + risk * 2.0
-                tp4 = entry + risk * 3.0
-                tp5 = entry + risk * 4.0
+                    tp1 = entry + risk * 1.5
+                    tp2 = entry + risk * 2.0
+                    tp3 = entry + risk * 3.0
+                tp4 = entry + risk * 4.0
+                tp5 = entry + risk * 5.0
             else:
-                if fib_levels and fib_levels.get("ext_025"):
+                if fib_direction_matches and fib_levels.get("ext_025"):
                     tp1_fib = fib_levels["ext_025"]
                     tp2_fib = fib_levels["ext_068"]
                     tp3_fib = fib_levels["ext_100"]
-                    tp1 = max(tp1_fib, entry - risk * max_tp1_rr)
-                    tp2 = max(tp2_fib, entry - risk * max_tp2_rr)
-                    tp3 = max(tp3_fib, entry - risk * max_tp3_rr)
+                    if tp1_fib < entry:
+                        tp1 = max(tp1_fib, entry - risk * max_tp1_rr)
+                        tp2 = max(tp2_fib, entry - risk * max_tp2_rr)
+                        tp3 = max(tp3_fib, entry - risk * max_tp3_rr)
+                    else:
+                        tp1 = entry - risk * 1.5
+                        tp2 = entry - risk * 2.0
+                        tp3 = entry - risk * 3.0
                 else:
-                    tp1 = entry - risk * 1.0
-                    tp2 = entry - risk * 1.5
-                    tp3 = entry - risk * 2.0
-                tp4 = entry - risk * 3.0
-                tp5 = entry - risk * 4.0
+                    tp1 = entry - risk * 1.5
+                    tp2 = entry - risk * 2.0
+                    tp3 = entry - risk * 3.0
+                tp4 = entry - risk * 4.0
+                tp5 = entry - risk * 5.0
             
             reward_to_tp1 = abs(tp1 - entry)
             rr_ratio = reward_to_tp1 / risk if risk > 0 else 0
