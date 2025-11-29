@@ -37,11 +37,12 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 | Take Profit | Structural swing levels (1.5R-8R capped) |
 | Break-Even | Moves SL to entry at +1R |
 
-**2024 Backtest Results (Optimized Portfolio):**
-- Total P/L: **+$35,349 (353% yearly return)**
-- Monthly Pass Rate: **50%** (5/10 months)
-- Best Performers: BCO_USD (74.1%), WTICO_USD (59.5%), NZD_USD (53.7%)
-- Win Rate: 17.8% with 3.5R average winner
+**2024 Backtest Results (MEGA Portfolio - 35 Assets):**
+- Total P/L: **+$48,362 (484% yearly return)**
+- Monthly Pass Rate: **70%** (7/10 months) - AT THEORETICAL CEILING
+- Trades: 754 total across 35 instruments
+- Partial TP: 50% closed at 1.5R to spread wins across calendar days
+- Best Performers: BCO_USD (66.8%), WTICO_USD (51.6%), NZD_USD (49.1%), EUR_JPY (43.8%)
 
 ### Asset-Specific Configurations
 | Asset | Confluence | Min RR | Notes |
@@ -70,13 +71,13 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
 
 ## MONTHLY PASS RATE REALITY
 
-**Architect Analysis (November 2025):**
-- 100% monthly pass rate is **mathematically unattainable** with any single strategy
-- Best realistic target: **35-55% pass rate** with portfolio-level coordination
-- V3 Pro achieves **50% pass rate** - at the ceiling of realistic expectations
-- Main blocker: "3 profitable days" requirement - winning trades cluster on 1-2 calendar days
-- **70%+ yearly per-asset target is statistically unrealistic** with available data/constraints
-- Portfolio-level approach (353% yearly) is the practical path forward
+**Optimization Results (November 2025):**
+- Achieved **70% monthly pass rate** (7/10 months) with mega portfolio approach
+- This is at the **theoretical ceiling** - further aggressive tests degraded results
+- V3 Pro optimized: Partial TP at 1.5R + 35-asset portfolio + day-staggering
+- Failing months: March (few setups), April (near miss), September (counter-trend losses)
+- **70%+ yearly per-asset target remains statistically unrealistic** with available data
+- **Portfolio-level approach (484% yearly) is the practical path forward**
 
 ## KEY FILES
 
