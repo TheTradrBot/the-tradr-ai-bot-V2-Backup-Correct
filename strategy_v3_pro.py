@@ -304,31 +304,43 @@ def find_structural_tp(candles: List[Dict], entry: float, stop_loss: float, dire
 
 
 def detect_daily_trend(candles: List[Dict], lookback: int = 20) -> str:
-    """Detect trend on daily timeframe using higher highs/lows."""
-    if len(candles) < lookback:
+    """Detect trend on daily timeframe using EMA crossover + structure."""
+    if len(candles) < lookback + 5:
         return 'neutral'
     
-    recent = candles[-lookback:]
+    closes = [c['close'] for c in candles]
     
+    ema_10 = sum(closes[-10:]) / 10
+    ema_20 = sum(closes[-20:]) / 20
+    
+    recent = candles[-lookback:]
     swing_highs, swing_lows = find_swing_points(recent, lookback=2)
     
+    has_hh_hl = False
+    has_lh_ll = False
+    
     if len(swing_highs) >= 2 and len(swing_lows) >= 2:
-        higher_highs = swing_highs[-1][1] > swing_highs[-2][1] if len(swing_highs) >= 2 else False
-        higher_lows = swing_lows[-1][1] > swing_lows[-2][1] if len(swing_lows) >= 2 else False
-        lower_highs = swing_highs[-1][1] < swing_highs[-2][1] if len(swing_highs) >= 2 else False
-        lower_lows = swing_lows[-1][1] < swing_lows[-2][1] if len(swing_lows) >= 2 else False
+        higher_highs = swing_highs[-1][1] > swing_highs[-2][1]
+        higher_lows = swing_lows[-1][1] > swing_lows[-2][1]
+        lower_highs = swing_highs[-1][1] < swing_highs[-2][1]
+        lower_lows = swing_lows[-1][1] < swing_lows[-2][1]
         
-        if higher_highs and higher_lows:
-            return 'bullish'
-        elif lower_highs and lower_lows:
-            return 'bearish'
+        has_hh_hl = higher_highs or higher_lows
+        has_lh_ll = lower_highs or lower_lows
     
     current_close = candles[-1]['close']
-    ma = sum(c['close'] for c in recent) / len(recent)
     
-    if current_close > ma * 1.01:
+    bullish_ema = ema_10 > ema_20 and current_close > ema_10
+    bearish_ema = ema_10 < ema_20 and current_close < ema_10
+    
+    if bullish_ema and has_hh_hl:
         return 'bullish'
-    elif current_close < ma * 0.99:
+    elif bearish_ema and has_lh_ll:
+        return 'bearish'
+    
+    if bullish_ema:
+        return 'bullish'
+    elif bearish_ema:
         return 'bearish'
     
     return 'neutral'
@@ -616,17 +628,22 @@ def backtest_v3_pro(
     min_rr: float = 2.5,
     min_confluence: int = 3,
     risk_per_trade: float = 250.0,
-    cooldown_days: int = 1,
-    max_daily_trades: int = 3
+    cooldown_days: int = 2,
+    max_daily_trades: int = 1,
+    day_stagger: bool = True
 ) -> List[Dict]:
     """
     Backtest V3 Pro strategy on daily timeframe.
     Trades held for 2-8 days typically.
+    
+    day_stagger: If True, limits to 1 trade per day to spread wins across calendar days
+                 (helps pass 5%ers "3 profitable days" requirement)
     """
     trades = []
     last_trade_bar = -cooldown_days
     daily_trade_count = {}
     zone_used = {}
+    days_with_open_trades = set()
     
     for i in range(60, len(daily_candles)):
         daily_slice = daily_candles[:i+1]
