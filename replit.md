@@ -118,6 +118,18 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
 - Strategy requirement: NO RSI, NO MACD, NO SMC
 - Focus: Fibonacci-based TradingView approach with 0.5-0.66 entry zones and Fib extension TPs
 
+## Recent Changes
+
+**November 29, 2025 - Project Import**
+- Successfully migrated project to Replit environment
+- Installed all required Python packages: discord.py, pandas, requests, yfinance, dukascopy-python
+- Configured workflow: "Discord Bot" (runs `python main.py`)
+- Environment variables required for operation:
+  - `DISCORD_BOT_TOKEN`: Required (Discord bot authentication)
+  - `OANDA_API_KEY`: Optional (for live market data)
+  - `OANDA_ACCOUNT_ID`: Optional (for live market data)
+- Project ready for use with local CSV data files in `data/` directory
+
 ## System Architecture
 
 ### Core Components
