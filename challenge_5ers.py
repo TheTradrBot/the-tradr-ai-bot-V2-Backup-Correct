@@ -212,18 +212,12 @@ def check_max_drawdown(state: ChallengeState, potential_loss: float) -> bool:
 def run_challenge_backtest(month: int, year: int) -> Dict:
     """Run backtest for a specific month simulating the 5%ers challenge."""
     
-    start_date = f"{year}-{month:02d}-01T00:00:00Z"
-    if month == 12:
-        end_date = f"{year + 1}-01-01T00:00:00Z"
-    else:
-        end_date = f"{year}-{month + 1:02d}-01T00:00:00Z"
+    target_month = f"{year}-{month:02d}"
     
-    state = ChallengeState()
-    all_trades = []
-    daily_results = {}
+    all_signals = []
     
     for symbol, config in ASSET_CONFIGS.items():
-        candles = fetch_candles(symbol, from_time=start_date, to_time=end_date)
+        candles = fetch_candles(symbol, count=2000, granularity='H4')
         if len(candles) < 200:
             continue
         
@@ -241,34 +235,9 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
         
         used_obs, used_fvgs = set(), set()
         
-        for i in range(min(150, len(candles) - 1), len(candles) - 1):
-            if state.failed:
-                break
-            
-            candle_date = candles[i]['time'][:10]
-            
-            if candle_date != state.current_date:
-                if state.current_date and state.daily_pnl > 0:
-                    state.profitable_days += 1
-                
-                if state.current_date:
-                    daily_results[state.current_date] = {
-                        'pnl': state.daily_pnl,
-                        'trades': state.trades_today,
-                        'balance': state.current_balance
-                    }
-                
-                state.current_date = candle_date
-                state.daily_starting_equity = max(state.current_balance, state.current_equity)
-                state.daily_pnl = 0.0
-                state.trades_today = 0
-                
-                if state.step == 1:
-                    state.step1_days += 1
-                elif state.step == 2:
-                    state.step2_days += 1
-            
-            if state.trades_today >= CHALLENGE_CONFIG['max_trades_per_day']:
+        for i in range(150, len(candles) - 1):
+            candle_month = candles[i]['time'][:7]
+            if candle_month != target_month:
                 continue
             
             price = candles[i]['close']
@@ -316,16 +285,6 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
                 sl = entry + atr * atr_mult
                 tp = entry - (sl - entry) * tp_rr
             
-            sl_pips = calculate_sl_pips(entry, sl, pip_size)
-            risk_usd = state.current_balance * (CHALLENGE_CONFIG['risk_per_trade_pct'] / 100)
-            lot_size = calculate_lot_size(risk_usd, sl_pips, pip_value)
-            potential_profit = risk_usd * tp_rr
-            
-            if not check_daily_drawdown(state, risk_usd):
-                continue
-            if not check_max_drawdown(state, risk_usd):
-                continue
-            
             exit_reason = 'OPEN'
             for j in range(i + 1, min(i + 80, len(candles))):
                 bar = candles[j]
@@ -347,60 +306,125 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
             if exit_reason == 'OPEN':
                 continue
             
-            if exit_reason == 'TP':
-                pnl = potential_profit
-            else:
-                pnl = -risk_usd
+            sl_pips = calculate_sl_pips(entry, sl, pip_size)
             
-            state.current_balance += pnl
-            state.current_equity = state.current_balance
-            state.daily_pnl += pnl
-            state.trades_today += 1
-            state.total_trades += 1
-            if pnl > 0:
-                state.winning_trades += 1
-            
-            trade = {
-                'trade_num': state.total_trades,
-                'symbol': symbol,
-                'date': candle_date,
+            all_signals.append({
                 'time': candles[i]['time'],
+                'date': candles[i]['time'][:10],
+                'symbol': symbol,
                 'direction': trend,
-                'entry': round(entry, 5),
-                'stop_loss': round(sl, 5),
-                'take_profit': round(tp, 5),
-                'lot_size': lot_size,
-                'risk_usd': round(risk_usd, 2),
+                'entry': entry,
+                'sl': sl,
+                'tp': tp,
+                'tp_rr': tp_rr,
+                'sl_pips': sl_pips,
+                'pip_value': pip_value,
                 'result': exit_reason,
-                'pnl': round(pnl, 2),
-                'balance': round(state.current_balance, 2),
-                'confluence': '+'.join(confluence),
-                'step': state.step
-            }
-            all_trades.append(trade)
+                'confluence': confluence
+            })
+    
+    all_signals.sort(key=lambda x: x['time'])
+    
+    state = ChallengeState()
+    all_trades = []
+    daily_results = {}
+    processed_dates = set()
+    step1_pass_date = None
+    step2_pass_date = None
+    
+    for sig in all_signals:
+        if state.failed:
+            break
+        if state.passed_step2:
+            break
+        
+        candle_date = sig['date']
+        
+        if candle_date not in processed_dates:
+            if state.current_date and state.daily_pnl > 0:
+                state.profitable_days += 1
             
-            min_equity = state.starting_balance * (1 - CHALLENGE_CONFIG['max_drawdown_pct'] / 100)
-            if state.current_balance < min_equity:
-                state.failed = True
-                state.fail_reason = f"Max drawdown hit (balance ${state.current_balance:.2f} < ${min_equity:.2f})"
-                break
+            if state.current_date:
+                daily_results[state.current_date] = {
+                    'pnl': state.daily_pnl,
+                    'trades': state.trades_today,
+                    'balance': state.current_balance
+                }
             
-            max_daily_loss = state.daily_starting_equity * (CHALLENGE_CONFIG['daily_drawdown_pct'] / 100)
-            if state.daily_pnl < -max_daily_loss:
-                state.failed = True
-                state.fail_reason = f"Daily drawdown hit (${state.daily_pnl:.2f} loss > ${max_daily_loss:.2f} limit)"
-                break
-            
-            if state.step == 1:
-                target = state.starting_balance * (1 + CHALLENGE_CONFIG['step1_target_pct'] / 100)
-                if state.current_balance >= target and state.profitable_days >= CHALLENGE_CONFIG['min_profitable_days']:
-                    state.passed_step1 = True
-                    state.step = 2
-                    state.starting_balance = state.current_balance
-            elif state.step == 2:
-                target = state.starting_balance * (1 + CHALLENGE_CONFIG['step2_target_pct'] / 100)
-                if state.current_balance >= target and state.profitable_days >= CHALLENGE_CONFIG['min_profitable_days']:
-                    state.passed_step2 = True
+            processed_dates.add(candle_date)
+            state.current_date = candle_date
+            state.daily_starting_equity = max(state.current_balance, state.current_equity)
+            state.daily_pnl = 0.0
+            state.trades_today = 0
+        
+        if state.trades_today >= CHALLENGE_CONFIG['max_trades_per_day']:
+            continue
+        
+        risk_usd = state.current_balance * (CHALLENGE_CONFIG['risk_per_trade_pct'] / 100)
+        lot_size = calculate_lot_size(risk_usd, sig['sl_pips'], sig['pip_value'])
+        potential_profit = risk_usd * sig['tp_rr']
+        
+        if not check_daily_drawdown(state, risk_usd):
+            continue
+        if not check_max_drawdown(state, risk_usd):
+            continue
+        
+        if sig['result'] == 'TP':
+            pnl = potential_profit
+        else:
+            pnl = -risk_usd
+        
+        state.current_balance += pnl
+        state.current_equity = state.current_balance
+        state.daily_pnl += pnl
+        state.trades_today += 1
+        state.total_trades += 1
+        if pnl > 0:
+            state.winning_trades += 1
+        
+        trade = {
+            'trade_num': state.total_trades,
+            'symbol': sig['symbol'],
+            'date': candle_date,
+            'time': sig['time'],
+            'direction': sig['direction'],
+            'entry': round(sig['entry'], 5),
+            'stop_loss': round(sig['sl'], 5),
+            'take_profit': round(sig['tp'], 5),
+            'lot_size': lot_size,
+            'risk_usd': round(risk_usd, 2),
+            'result': sig['result'],
+            'pnl': round(pnl, 2),
+            'balance': round(state.current_balance, 2),
+            'confluence': '+'.join(sig['confluence']),
+            'step': state.step
+        }
+        all_trades.append(trade)
+        
+        min_equity = 10000 * (1 - CHALLENGE_CONFIG['max_drawdown_pct'] / 100)
+        if state.current_balance < min_equity:
+            state.failed = True
+            state.fail_reason = f"Max drawdown hit (balance ${state.current_balance:.2f} < ${min_equity:.2f})"
+            break
+        
+        max_daily_loss = state.daily_starting_equity * (CHALLENGE_CONFIG['daily_drawdown_pct'] / 100)
+        if state.daily_pnl < -max_daily_loss:
+            state.failed = True
+            state.fail_reason = f"Daily drawdown hit (${state.daily_pnl:.2f} loss > ${max_daily_loss:.2f} limit)"
+            break
+        
+        if state.step == 1 and not state.passed_step1:
+            target = 10000 * (1 + CHALLENGE_CONFIG['step1_target_pct'] / 100)
+            if state.current_balance >= target and state.profitable_days >= CHALLENGE_CONFIG['min_profitable_days']:
+                state.passed_step1 = True
+                state.step = 2
+                step1_pass_date = candle_date
+                state.starting_balance = state.current_balance
+        elif state.step == 2 and not state.passed_step2:
+            target = state.starting_balance * (1 + CHALLENGE_CONFIG['step2_target_pct'] / 100)
+            if state.current_balance >= target:
+                state.passed_step2 = True
+                step2_pass_date = candle_date
     
     if state.current_date and state.daily_pnl > 0:
         state.profitable_days += 1
@@ -410,6 +434,17 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
             'trades': state.trades_today,
             'balance': state.current_balance
         }
+    
+    trading_days = len(processed_dates)
+    if step1_pass_date:
+        step1_days = len([d for d in processed_dates if d <= step1_pass_date])
+    else:
+        step1_days = trading_days
+    
+    if step2_pass_date and step1_pass_date:
+        step2_days = len([d for d in processed_dates if step1_pass_date < d <= step2_pass_date])
+    else:
+        step2_days = 0
     
     total_pnl = state.current_balance - 10000
     win_rate = (state.winning_trades / state.total_trades * 100) if state.total_trades > 0 else 0
@@ -421,9 +456,9 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
         'passed_step2': state.passed_step2,
         'failed': state.failed,
         'fail_reason': state.fail_reason,
-        'step1_days': state.step1_days,
-        'step2_days': state.step2_days,
-        'total_days': state.step1_days + state.step2_days,
+        'step1_days': step1_days,
+        'step2_days': step2_days,
+        'total_days': trading_days,
         'total_trades': state.total_trades,
         'winning_trades': state.winning_trades,
         'win_rate': win_rate,

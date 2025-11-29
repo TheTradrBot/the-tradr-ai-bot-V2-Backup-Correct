@@ -51,6 +51,7 @@ from config import ACCOUNT_SIZE, RISK_PER_TRADE_PCT
 
 from backtest import run_backtest
 from data import get_ohlcv, get_cache_stats, clear_cache, get_current_prices
+from challenge_5ers import run_challenge_backtest, format_challenge_result, export_challenge_trades_csv
 
 
 ACTIVE_TRADES: dict[str, ScanResult] = {}
@@ -689,6 +690,70 @@ async def debug_cmd(interaction: discord.Interaction):
         await interaction.response.send_message(msg, ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"Error getting debug info: {str(e)}", ephemeral=True)
+
+
+@bot.tree.command(name="pass", description="Check if 5%ers challenge would pass for a given month.")
+@app_commands.describe(
+    month="Month (1-12)",
+    year="Year (e.g., 2023, 2024)"
+)
+async def pass_challenge(interaction: discord.Interaction, month: int, year: int):
+    """Run 5%ers 10K challenge backtest for a specific month."""
+    await interaction.response.defer()
+    
+    if month < 1 or month > 12:
+        await interaction.followup.send("Invalid month. Please use 1-12.")
+        return
+    
+    if year < 2020 or year > 2025:
+        await interaction.followup.send("Invalid year. Please use 2020-2025.")
+        return
+    
+    try:
+        result = await asyncio.to_thread(run_challenge_backtest, month, year)
+        
+        embed = format_challenge_result(result)
+        await interaction.followup.send(embed=embed)
+        
+        if result['trades']:
+            filename = export_challenge_trades_csv(result)
+            
+            summary = f"\n**5%ERS 10K CHALLENGE - {datetime(year, month, 1).strftime('%B %Y')}**\n"
+            summary += "=" * 50 + "\n"
+            
+            if result['passed_step2']:
+                summary += f"**PASSED BOTH STEPS!**\n"
+                summary += f"Step 1: Passed in {result['step1_days']} days\n"
+                summary += f"Step 2: Passed in {result['step2_days']} days\n"
+                summary += f"Total: {result['step1_days'] + result['step2_days']} days\n"
+            elif result['passed_step1']:
+                summary += f"**PASSED STEP 1 ONLY**\n"
+                summary += f"Step 1: Passed in {result['step1_days']} days\n"
+            elif result['failed']:
+                summary += f"**FAILED: {result['fail_reason']}**\n"
+            else:
+                summary += f"**IN PROGRESS**\n"
+            
+            summary += f"\nTotal Trades: {result['total_trades']}\n"
+            summary += f"Win Rate: {result['win_rate']:.1f}%\n"
+            summary += f"Profitable Days: {result['profitable_days']}\n"
+            summary += f"Final Balance: ${result['final_balance']:,.2f}\n"
+            
+            pnl_str = f"+${result['total_pnl']:,.2f}" if result['total_pnl'] >= 0 else f"-${abs(result['total_pnl']):,.2f}"
+            summary += f"Total P/L: {pnl_str} ({result['return_pct']:+.1f}%)\n"
+            
+            if result['trades']:
+                summary += f"\n**Sample Trades (showing 10):**\n```"
+                for t in result['trades'][:10]:
+                    pnl = f"+${t['pnl']:.0f}" if t['pnl'] > 0 else f"-${abs(t['pnl']):.0f}"
+                    summary += f"{t['symbol']:<12} {t['direction']:<5} {t['lot_size']:.2f}L | {t['result']} {pnl:>8} | Bal: ${t['balance']:,.0f}\n"
+                summary += "```"
+            
+            await interaction.followup.send(summary)
+            await interaction.followup.send(f"Full trades exported to: `{filename}`")
+            
+    except Exception as e:
+        await interaction.followup.send(f"Error running challenge backtest: {str(e)}")
 
 
 @tasks.loop(hours=SCAN_INTERVAL_HOURS)
