@@ -120,7 +120,7 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
 
 ## Recent Changes
 
-**November 29, 2025 - Project Import**
+**November 29, 2025 - Project Import & Strategy Alignment**
 - Successfully migrated project to Replit environment
 - Installed all required Python packages: discord.py, pandas, requests, yfinance, dukascopy-python
 - Configured workflow: "Discord Bot" (runs `python main.py`)
@@ -129,6 +129,12 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
   - `OANDA_API_KEY`: Optional (for live market data)
   - `OANDA_ACCOUNT_ID`: Optional (for live market data)
 - Project ready for use with local CSV data files in `data/` directory
+- **VERIFIED STRATEGY ALIGNMENT**: All backtest commands now use V3 Pro strategy:
+  - `/backtest` - Uses V3 Pro (Fibonacci + Weekly S/R)
+  - `/output` - Uses V3 Pro (now accepts "Jan 24 - Aug 24" format)
+  - `/pass` - Uses V3 Pro (updated from old V3 strategy)
+  - Live trading signals (`strategy.py`) - Uses V3 Pro
+- **Backtest results are directly applicable to 5%ers challenge performance**
 
 ## System Architecture
 

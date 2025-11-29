@@ -50,7 +50,6 @@ from position_sizing import calculate_position_size_5ers
 from config import ACCOUNT_SIZE, RISK_PER_TRADE_PCT
 
 from data import get_ohlcv, get_cache_stats, clear_cache, get_current_prices
-from challenge_5ers import run_challenge_backtest, run_backtest, format_challenge_result_for_discord
 from datetime import timedelta
 
 
@@ -318,7 +317,7 @@ async def help_command(interaction: discord.Interaction):
 `/backtest [asset] [period]` - Test strategy performance
   Example: `/backtest EUR_USD "Jan 2024 - Dec 2024"`
 `/output [asset] [period]` - Export trades to CSV file
-  Example: `/output EUR_USD "Jan 2024 - Dec 2024"`
+  Example: `/output EUR_USD "Jan 24 - Aug 24"`
 
 **System:**
 `/cache` - View cache statistics
@@ -635,30 +634,41 @@ async def backtest_cmd(interaction: discord.Interaction, asset: str, date_range:
         await interaction.followup.send(f"Error running backtest for **{asset}**: {str(e)}")
 
 
-@bot.tree.command(name="output", description='Export backtest trades to CSV. Example: /output EUR_USD 2024')
+@bot.tree.command(name="output", description='Export backtest trades to CSV. Example: /output EUR_USD "Jan 24 - Aug 24"')
 @app_commands.describe(
     asset="The asset to backtest (e.g., EUR_USD, XAU_USD)",
-    year="The year to backtest (e.g., 2024)"
+    period="Date range in format 'Mon YY - Mon YY' (e.g., 'Jan 24 - Aug 24')"
 )
-async def output_cmd(interaction: discord.Interaction, asset: str, year: int):
+async def output_cmd(interaction: discord.Interaction, asset: str, period: str):
     """Export backtest trades to a downloadable CSV file."""
     await interaction.response.defer()
     
     try:
-        from trade_export import export_trades_to_csv, get_backtest_with_trades
+        from trade_export import export_trades_to_csv_range, get_backtest_with_trades_range, parse_date_range
         import io
         
         asset_clean = asset.upper().replace("/", "_")
-        result = get_backtest_with_trades(asset_clean, year)
+        
+        start_date, end_date = parse_date_range(period)
+        if start_date is None or end_date is None:
+            await interaction.followup.send(
+                f"Invalid date range format. Use format like: **Jan 24 - Aug 24**\n"
+                f"Examples: `Jan 24 - Dec 24`, `Mar 23 - Jun 24`"
+            )
+            return
+        
+        result = get_backtest_with_trades_range(asset_clean, start_date, end_date)
         trades = result.get("trades", [])
         
         if not trades:
-            await interaction.followup.send(f"No trades found for **{asset}** in {year}.")
+            await interaction.followup.send(f"No trades found for **{asset}** in {period}.")
             return
         
-        csv_content = export_trades_to_csv(asset_clean, year, trades)
+        csv_content = export_trades_to_csv_range(asset_clean, start_date, end_date, trades)
         
-        filename = f"{asset_clean}_{year}_trades.csv"
+        start_str = start_date.strftime("%b%y").upper()
+        end_str = end_date.strftime("%b%y").upper()
+        filename = f"{asset_clean}_{start_str}_{end_str}_trades.csv"
         
         file = discord.File(
             io.BytesIO(csv_content.encode('utf-8')),
@@ -668,12 +678,17 @@ async def output_cmd(interaction: discord.Interaction, asset: str, year: int):
         total_trades = result.get("total_trades", len(trades))
         win_rate = result.get("win_rate", 0)
         net_pnl = result.get("net_pnl", 0)
+        total_r = result.get("total_r", 0)
+        
+        period_display = f"{start_date.strftime('%b %y').upper()} - {end_date.strftime('%b %y').upper()}"
         
         summary = (
-            f"**Trade Export - {asset_clean} ({year})**\n\n"
+            f"**Trade Export - {asset_clean} ({period_display})**\n\n"
             f"Total Trades: {total_trades}\n"
             f"Win Rate: {win_rate:.1f}%\n"
+            f"Total R: {total_r:+.1f}R\n"
             f"Net P/L: ${net_pnl:+,.0f}\n\n"
+            f"Strategy: V3 Pro - Daily S/D + Golden Pocket + Wyckoff\n"
             f"CSV file attached below:"
         )
         
@@ -769,7 +784,7 @@ async def debug_cmd(interaction: discord.Interaction):
     year="Year (e.g., 2023, 2024)"
 )
 async def pass_challenge(interaction: discord.Interaction, asset: str, month: int, year: int):
-    """Run 5%ers 10K challenge backtest for a specific month."""
+    """Run 5%ers 10K challenge backtest for a specific month using V3 Pro strategy."""
     await interaction.response.defer()
     
     if month < 1 or month > 12:
@@ -781,42 +796,47 @@ async def pass_challenge(interaction: discord.Interaction, asset: str, month: in
         return
     
     try:
+        from challenge_5ers_v3_pro import run_monthly_challenge_simulation
+        
         asset_clean = asset.upper().replace("/", "_")
-        result = await asyncio.to_thread(run_challenge_backtest, asset_clean, year, month)
+        result = await asyncio.to_thread(run_monthly_challenge_simulation, asset_clean, year, month)
         
         if 'error' in result:
             await interaction.followup.send(f"Error: {result['error']}")
             return
         
-        challenge = result.get('challenge', {})
-        backtest = result.get('backtest', {})
-        
-        passed = challenge.get('passed', False)
-        step1 = challenge.get('step1_passed', False)
-        step2 = challenge.get('step2_passed', False)
-        blown = challenge.get('blown', False)
+        step1 = result.get('step1_passed', False)
+        step2 = result.get('step2_passed', False)
+        total_pnl = result.get('total_pnl', 0)
+        profitable_days = result.get('profitable_days', 0)
+        trades = result.get('trades', [])
+        challenge_result = result.get('result', {})
         
         month_name = datetime(year, month, 1).strftime('%B %Y')
         
         summary = f"**5%ERS 10K CHALLENGE - {asset_clean} - {month_name}**\n"
         summary += "=" * 50 + "\n\n"
         
-        if passed:
+        if step1 and step2:
             summary += "**STATUS: PASSED BOTH STEPS!**\n"
         elif step1 and not step2:
             summary += "**STATUS: PASSED STEP 1 ONLY**\n"
-        elif blown:
-            summary += f"**STATUS: BLOWN** - {challenge.get('blown_reason', 'Unknown')}\n"
+        elif challenge_result.get('blown', False):
+            summary += f"**STATUS: BLOWN** - {challenge_result.get('blown_reason', 'Unknown')}\n"
         else:
             summary += "**STATUS: INCOMPLETE**\n"
         
+        final_balance = challenge_result.get('final_balance', 10000)
+        win_count = len([t for t in trades if t.get('result') in ['WIN', 'PARTIAL_WIN']])
+        win_rate = (win_count / len(trades) * 100) if trades else 0
+        
         summary += f"\n**Results:**\n"
-        summary += f"Final Balance: ${challenge.get('final_balance', 10000):,.0f}\n"
-        summary += f"Total P/L: ${challenge.get('total_pnl', 0):+,.0f}\n"
-        summary += f"Total Trades: {challenge.get('total_trades', 0)}\n"
-        summary += f"Win Rate: {challenge.get('win_rate', 0):.1f}%\n"
-        summary += f"Profitable Days: {challenge.get('profitable_days', 0)}\n"
-        summary += f"\nStrategy: V3 HTF S/R + BOS + Structural TPs"
+        summary += f"Final Balance: ${final_balance:,.0f}\n"
+        summary += f"Total P/L: ${total_pnl:+,.0f}\n"
+        summary += f"Total Trades: {len(trades)}\n"
+        summary += f"Win Rate: {win_rate:.1f}%\n"
+        summary += f"Profitable Days: {profitable_days}\n"
+        summary += f"\nStrategy: V3 Pro - Daily S/D + Golden Pocket + Wyckoff"
         
         await interaction.followup.send(summary)
             
