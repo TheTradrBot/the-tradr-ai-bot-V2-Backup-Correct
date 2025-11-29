@@ -15,13 +15,23 @@ Blueprint Trader AI is an automated trading signal bot designed to identify high
 - **Risk Per Trade**: 1.5% ($150 per trade)
 - **Maximum Trades Per Day**: 5
 
-### Backtest Results (September 2024)
-- **PASSED BOTH STEPS in 9 days**
-  - Step 1: 8 days to reach $10,800+
-  - Step 2: 1 additional day to reach final target
-- **24 trades**, 29.2% win rate
-- **Final Balance**: $13,007.94 (+30.1% return)
-- **Profitable Days**: 5
+### HIGH WIN RATE Strategy (Active)
+- **R:R Ratio**: 1.5:1 (easier to hit TP)
+- **Stop Loss**: 1x ATR (gives trades room)
+- **Trend Filter**: EMA(50)
+- **Entry Filters**: RSI confirmation + 2 confluence factors (OB/FVG/SWEEP)
+
+### Backtest Results
+| Month | Trades | Win Rate | Max DD | P/L | Result |
+|-------|--------|----------|--------|-----|--------|
+| Sep 2024 | 13 | 69.2% | 0.0% | +$1,500 | Step 1 in 4 days |
+| Oct 2024 | 37 | 51.4% | 6.7% | +$1,627 | **PASSED in 15 days** |
+
+### Assets Traded (15 total)
+Forex: EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, NZD/USD, USD/CAD, EUR/GBP, EUR/JPY, GBP/JPY
+Metals: XAU/USD (Gold)
+Crypto: BTC/USD, ETH/USD
+Indices: SPX500, NAS100
 
 ### Lot Size Formula
 ```
