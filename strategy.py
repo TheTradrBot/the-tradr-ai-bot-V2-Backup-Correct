@@ -1,11 +1,15 @@
 """
-Strategy wrapper for Discord bot - uses V3 strategy.
+Strategy wrapper for Discord bot - uses V3 Pro strategy.
 
-This file provides the interface between the Discord bot and strategy_v3.py.
-All scanning and signal generation goes through strategy_v3.
+This file provides the interface between the Discord bot and strategy_v3_pro.py.
+All scanning and signal generation goes through strategy_v3_pro.
 
-V3 Strategy: HTF S/R + Break of Structure + Structural TPs
-NO RSI, NO SMC, NO Fibonacci TPs
+V3 Pro Strategy: 
+- Daily S/D Zones + Golden Pocket (0.618-0.65) entries
+- Wyckoff Spring/Upthrust patterns
+- EMA crossover trend confirmation
+- Structural TPs (2-8 day hold time)
+- NO RSI, NO MACD, NO SMC, NO Fibonacci for TPs
 """
 
 from dataclasses import dataclass
@@ -16,12 +20,34 @@ from data import get_ohlcv
 from config import (
     FOREX_PAIRS, METALS, INDICES, ENERGIES, CRYPTO_ASSETS
 )
-from strategy_v3 import generate_signal, TradeSignal
+from strategy_v3_pro import generate_v3_pro_signal, TradeSignal
+
+
+OPTIMAL_ASSET_CONFIGS = {
+    'EUR_USD': {'conf': 2, 'rr': 2.0},
+    'GBP_USD': {'conf': 3, 'rr': 3.0},
+    'USD_JPY': {'conf': 3, 'rr': 3.0},
+    'USD_CHF': {'conf': 2, 'rr': 1.5},
+    'USD_CAD': {'conf': 3, 'rr': 3.0},
+    'AUD_USD': {'conf': 2, 'rr': 1.5},
+    'NZD_USD': {'conf': 3, 'rr': 3.0},
+    'EUR_GBP': {'conf': 3, 'rr': 2.5},
+    'EUR_JPY': {'conf': 2, 'rr': 1.5},
+    'GBP_JPY': {'conf': 3, 'rr': 3.0},
+    'XAU_USD': {'conf': 2, 'rr': 1.5},
+    'XAG_USD': {'conf': 3, 'rr': 2.5},
+    'WTICO_USD': {'conf': 3, 'rr': 3.0},
+    'BCO_USD': {'conf': 2, 'rr': 1.5},
+    'NAS100_USD': {'conf': 2, 'rr': 2.0},
+    'SPX500_USD': {'conf': 3, 'rr': 2.5},
+    'BTC_USD': {'conf': 3, 'rr': 3.0},
+    'ETH_USD': {'conf': 3, 'rr': 2.5},
+}
 
 
 @dataclass 
 class ScanResult:
-    """Result from scanning an instrument."""
+    """Result from scanning an instrument (V3 Pro format)."""
     symbol: str
     direction: str
     entry: float
@@ -32,9 +58,9 @@ class ScanResult:
     confluence_score: int
     reasoning: str
     timestamp: datetime
-    htf_zone_low: float = 0.0
-    htf_zone_high: float = 0.0
-    bos_level: float = 0.0
+    zone_low: float = 0.0
+    zone_high: float = 0.0
+    entry_type: str = "zone_entry"
     
     @property
     def tp1(self) -> float:
@@ -47,10 +73,29 @@ class ScanResult:
     @property
     def summary_reason(self) -> str:
         return self.reasoning
+    
+    @property
+    def htf_zone_low(self) -> float:
+        return self.zone_low
+    
+    @property
+    def htf_zone_high(self) -> float:
+        return self.zone_high
+    
+    @property
+    def bos_level(self) -> float:
+        return self.entry
 
 
 def convert_signal_to_scan_result(signal: TradeSignal) -> ScanResult:
-    """Convert a TradeSignal to ScanResult for Discord display."""
+    """Convert a V3 Pro TradeSignal to ScanResult for Discord display."""
+    ts = signal.timestamp
+    if isinstance(ts, str):
+        try:
+            ts = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        except:
+            ts = datetime.now()
+    
     return ScanResult(
         symbol=signal.symbol,
         direction=signal.direction,
@@ -59,35 +104,36 @@ def convert_signal_to_scan_result(signal: TradeSignal) -> ScanResult:
         take_profit=signal.take_profit,
         r_multiple=signal.r_multiple,
         status=signal.status,
-        confluence_score=signal.confluence_score,
+        confluence_score=signal.confluence,
         reasoning=signal.reasoning,
-        timestamp=signal.timestamp,
-        htf_zone_low=signal.htf_zone[0] if signal.htf_zone else 0.0,
-        htf_zone_high=signal.htf_zone[1] if signal.htf_zone else 0.0,
-        bos_level=signal.bos_level
+        timestamp=ts,
+        zone_low=signal.zone.low if signal.zone else 0.0,
+        zone_high=signal.zone.high if signal.zone else 0.0,
+        entry_type=signal.entry_type or "zone_entry"
     )
 
 
 def scan_single_asset(symbol: str) -> Optional[ScanResult]:
     """
-    Scan a single instrument using V3 strategy.
-    Fetches H4, Daily, and Weekly data from OANDA.
+    Scan a single instrument using V3 Pro strategy.
+    Fetches Daily and Weekly data from OANDA.
+    Uses asset-specific optimal configurations.
     """
     try:
-        h4_candles = get_ohlcv(symbol, timeframe="H4", count=200)
         daily_candles = get_ohlcv(symbol, timeframe="D", count=200)
         weekly_candles = get_ohlcv(symbol, timeframe="W", count=50)
         
-        if len(h4_candles) < 50 or len(daily_candles) < 50 or len(weekly_candles) < 10:
+        if len(daily_candles) < 60 or len(weekly_candles) < 12:
             return None
         
-        signal = generate_signal(
+        cfg = OPTIMAL_ASSET_CONFIGS.get(symbol, {'conf': 3, 'rr': 2.5})
+        
+        signal = generate_v3_pro_signal(
             symbol=symbol,
-            h4_candles=h4_candles,
             daily_candles=daily_candles,
             weekly_candles=weekly_candles,
-            min_rr=2.0,
-            min_confluence=2
+            min_rr=cfg['rr'],
+            min_confluence=cfg['conf']
         )
         
         if signal:
