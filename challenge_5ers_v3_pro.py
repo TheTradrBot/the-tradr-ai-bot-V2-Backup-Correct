@@ -30,7 +30,7 @@ ASSETS = [
 AGGRESSIVE_ASSET_CONFIGS = {
     'EUR_USD': {'conf': 2, 'rr': 1.5},
     'GBP_USD': {'conf': 2, 'rr': 1.5},
-    'USD_JPY': {'conf': 2, 'rr': 1.5},
+    'USD_JPY': {'conf': 4, 'rr': 2.5},
     'USD_CHF': {'conf': 2, 'rr': 1.5},
     'USD_CAD': {'conf': 2, 'rr': 1.5},
     'AUD_USD': {'conf': 2, 'rr': 1.5},
@@ -82,8 +82,8 @@ def fetch_data_for_v3_pro(symbol: str) -> tuple:
 def run_v3_pro_backtest_for_asset(
     symbol: str,
     year: int,
-    min_rr: float = 2.5,
-    min_confluence: int = 3,
+    min_rr: float = None,
+    min_confluence: int = None,
     risk_per_trade: float = 250.0,
     partial_tp: bool = True,
     partial_tp_r: float = 1.5,
@@ -93,6 +93,19 @@ def run_v3_pro_backtest_for_asset(
     """Run V3 Pro backtest for a single asset for a year with AGGRESSIVE settings. Optionally filter by month range."""
     
     try:
+        # Use asset-specific config if available, otherwise use defaults
+        if symbol in AGGRESSIVE_ASSET_CONFIGS:
+            config = AGGRESSIVE_ASSET_CONFIGS[symbol]
+            if min_rr is None:
+                min_rr = config['rr']
+            if min_confluence is None:
+                min_confluence = config['conf']
+        else:
+            if min_rr is None:
+                min_rr = 1.5
+            if min_confluence is None:
+                min_confluence = 2
+        
         daily_candles, weekly_candles = fetch_data_for_v3_pro(symbol)
         
         if len(daily_candles) < 100:
