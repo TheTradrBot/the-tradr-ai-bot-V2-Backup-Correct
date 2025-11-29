@@ -36,8 +36,8 @@ CHALLENGE_CONFIG = {
     'step2_target_pct': 5.0,
     'max_drawdown_pct': 10.0,
     'daily_drawdown_pct': 5.0,
-    'risk_per_trade_pct': 2.5,
-    'max_trades_per_day': 5,
+    'risk_per_trade_pct': 1.5,
+    'max_trades_per_day': 10,
     'min_profitable_days': 3,
     'leverage': 100,
 }
@@ -78,20 +78,39 @@ ASSET_CONFIGS_HIGH_WINRATE = {
     'NAS100_USD': {'tp_rr': 1.5, 'atr_mult': 1.0, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.1, 'rsi_ob': 70, 'rsi_os': 30},
 }
 
-ASSET_CONFIGS_OPTIMIZED = {
-    'EUR_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
-    'USD_CHF': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 11.0, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
-    'NAS100_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.1, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
-    'USD_CAD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 7.5, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
-    'GBP_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
-    'EUR_GBP': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 12.5, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
-    'AUD_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
-    'GBP_JPY': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 9.0, 'pip_size': 0.01, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
-    'XAU_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.01, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
-    'ETH_USD': {'tp_rr': 2.0, 'atr_mult': 0.6, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.01, 'rsi_ob': 60, 'rsi_os': 40, 'min_confluence': 1},
+ASSET_CONFIGS_AGGRESSIVE = {
+    'EUR_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'GBP_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'USD_JPY': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 9.0, 'pip_size': 0.01, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'USD_CHF': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 11.0, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'AUD_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'NZD_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'USD_CAD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 7.5, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'EUR_GBP': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 12.5, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'EUR_JPY': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 9.0, 'pip_size': 0.01, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'GBP_JPY': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 9.0, 'pip_size': 0.01, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'EUR_CHF': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 11.0, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'EUR_AUD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'EUR_CAD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 7.5, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'GBP_CHF': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 11.0, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'GBP_AUD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'GBP_CAD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 7.5, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'AUD_JPY': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 9.0, 'pip_size': 0.01, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'AUD_NZD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'AUD_CAD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 7.5, 'pip_size': 0.0001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'NZD_JPY': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 9.0, 'pip_size': 0.01, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'CAD_JPY': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 9.0, 'pip_size': 0.01, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'XAU_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.01, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'XAG_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 5.0, 'pip_size': 0.001, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'BTC_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 1.0, 'pip_size': 1.0, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'ETH_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.01, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'SPX500_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.1, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'NAS100_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 1.0, 'pip_size': 0.1, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'US30_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 1.0, 'pip_size': 1.0, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
+    'WTICO_USD': {'tp_rr': 5.0, 'atr_mult': 0.4, 'ema': 50, 'pip_value': 10.0, 'pip_size': 0.01, 'rsi_ob': 55, 'rsi_os': 45, 'min_confluence': 0},
 }
 
-ASSET_CONFIGS = ASSET_CONFIGS_OPTIMIZED
+ASSET_CONFIGS = ASSET_CONFIGS_AGGRESSIVE
 
 ASSET_FEES = {
     'EUR_USD': {'spread_pips': 1.0, 'commission': 7.0},
@@ -104,11 +123,25 @@ ASSET_FEES = {
     'EUR_GBP': {'spread_pips': 1.5, 'commission': 7.0},
     'EUR_JPY': {'spread_pips': 1.5, 'commission': 7.0},
     'GBP_JPY': {'spread_pips': 2.0, 'commission': 7.0},
+    'EUR_CHF': {'spread_pips': 1.5, 'commission': 7.0},
+    'EUR_AUD': {'spread_pips': 2.0, 'commission': 7.0},
+    'EUR_CAD': {'spread_pips': 2.0, 'commission': 7.0},
+    'GBP_CHF': {'spread_pips': 2.0, 'commission': 7.0},
+    'GBP_AUD': {'spread_pips': 2.5, 'commission': 7.0},
+    'GBP_CAD': {'spread_pips': 2.5, 'commission': 7.0},
+    'AUD_JPY': {'spread_pips': 1.5, 'commission': 7.0},
+    'AUD_NZD': {'spread_pips': 2.0, 'commission': 7.0},
+    'AUD_CAD': {'spread_pips': 2.0, 'commission': 7.0},
+    'NZD_JPY': {'spread_pips': 2.0, 'commission': 7.0},
+    'CAD_JPY': {'spread_pips': 2.0, 'commission': 7.0},
     'XAU_USD': {'spread_pips': 25.0, 'commission': 6.0},
+    'XAG_USD': {'spread_pips': 2.0, 'commission': 5.0},
     'BTC_USD': {'fee_pct': 0.20},
     'ETH_USD': {'fee_pct': 0.20},
     'SPX500_USD': {'spread_points': 0.5, 'commission': 0.0},
     'NAS100_USD': {'spread_points': 1.0, 'commission': 0.0},
+    'US30_USD': {'spread_points': 2.0, 'commission': 0.0},
+    'WTICO_USD': {'spread_pips': 3.0, 'commission': 0.0},
 }
 
 
@@ -330,8 +363,28 @@ def check_max_drawdown(state: ChallengeState, potential_loss: float) -> bool:
     return (state.current_balance - potential_loss) >= min_equity
 
 
+def detect_market_regime(candles: List[Dict], ema_short: List[float], ema_long: List[float], atr: float) -> str:
+    """Detect market regime: TRENDING, RANGING, or VOLATILE."""
+    if len(candles) < 20 or len(ema_short) < 5 or len(ema_long) < 5:
+        return 'UNKNOWN'
+    
+    recent_closes = [c['close'] for c in candles[-20:]]
+    price_range = max(recent_closes) - min(recent_closes)
+    avg_price = sum(recent_closes) / len(recent_closes)
+    range_pct = price_range / avg_price * 100
+    
+    ema_diff = abs(ema_short[-1] - ema_long[-1]) / avg_price * 100
+    
+    if range_pct > 3 and ema_diff > 0.5:
+        return 'TRENDING'
+    elif range_pct < 1.5:
+        return 'RANGING'
+    else:
+        return 'VOLATILE'
+
+
 def run_challenge_backtest(month: int, year: int) -> Dict:
-    """Run backtest for a specific month simulating the 5%ers challenge."""
+    """Run backtest for a specific month simulating the 5%ers challenge with multi-strategy approach."""
     
     target_month = f"{year}-{month:02d}"
     
@@ -342,76 +395,135 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
         if len(candles) < 200:
             continue
         
-        tp_rr = config['tp_rr']
-        atr_mult = config['atr_mult']
-        ema_period = config['ema']
         pip_value = config['pip_value']
         pip_size = config['pip_size']
-        rsi_ob = config.get('rsi_ob', 70)
-        rsi_os = config.get('rsi_os', 30)
         
         closes = [c['close'] for c in candles]
-        ema = calculate_ema(closes, ema_period)
+        ema_20 = calculate_ema(closes, 20)
+        ema_50 = calculate_ema(closes, 50)
         rsi = calculate_rsi(closes, 14)
         obs = find_order_blocks(candles)
         fvgs = find_fair_value_gaps(candles)
         sweeps = find_liquidity_sweeps(candles)
         
-        used_obs, used_fvgs = set(), set()
+        last_signal_idx = 0
+        cooldown = 2
         
-        for i in range(150, len(candles) - 1):
+        for i in range(100, len(candles) - 1):
             candle_month = candles[i]['time'][:7]
             if candle_month != target_month:
                 continue
             
+            if i - last_signal_idx < cooldown:
+                continue
+            
             price = candles[i]['close']
-            ema_idx = i - ema_period
-            if ema_idx < 0 or ema_idx >= len(ema):
-                continue
+            candle = candles[i]
+            prev_candle = candles[i-1]
             
+            ema20_idx = i - 20
+            ema50_idx = i - 50
             rsi_idx = i - 1
-            if rsi_idx < 0 or rsi_idx >= len(rsi):
-                continue
-            current_rsi = rsi[rsi_idx]
             
-            trend = 'LONG' if price > ema[ema_idx] else 'SHORT'
+            if ema20_idx < 0 or ema50_idx < 0 or rsi_idx < 0:
+                continue
+            if ema20_idx >= len(ema_20) or ema50_idx >= len(ema_50) or rsi_idx >= len(rsi):
+                continue
+            
+            current_ema20 = ema_20[ema20_idx]
+            current_ema50 = ema_50[ema50_idx]
+            current_rsi = rsi[rsi_idx]
+            atr = calculate_atr(candles[max(0, i-30):i+1])
+            
+            regime = detect_market_regime(candles[max(0, i-30):i+1], 
+                                          ema_20[max(0, ema20_idx-10):ema20_idx+1],
+                                          ema_50[max(0, ema50_idx-10):ema50_idx+1],
+                                          atr)
+            
+            trend = None
+            confluence = []
+            tp_rr = 2.0
+            atr_mult = 0.6
+            
+            if regime == 'TRENDING':
+                if price > current_ema20 > current_ema50 and current_rsi > 50:
+                    trend = 'LONG'
+                    confluence.append('TREND_UP')
+                    tp_rr = 3.0
+                    atr_mult = 0.5
+                elif price < current_ema20 < current_ema50 and current_rsi < 50:
+                    trend = 'SHORT'
+                    confluence.append('TREND_DOWN')
+                    tp_rr = 3.0
+                    atr_mult = 0.5
+            
+            elif regime == 'RANGING':
+                if current_rsi < 30:
+                    trend = 'LONG'
+                    confluence.append('RSI_OS')
+                    tp_rr = 1.5
+                    atr_mult = 0.8
+                elif current_rsi > 70:
+                    trend = 'SHORT'
+                    confluence.append('RSI_OB')
+                    tp_rr = 1.5
+                    atr_mult = 0.8
+            
+            else:
+                body = abs(candle['close'] - candle['open'])
+                total_range = candle['high'] - candle['low']
+                if total_range > 0 and body / total_range > 0.6:
+                    if candle['close'] > candle['open'] and current_rsi < 65:
+                        trend = 'LONG'
+                        confluence.append('BREAKOUT')
+                        tp_rr = 2.5
+                        atr_mult = 0.6
+                    elif candle['close'] < candle['open'] and current_rsi > 35:
+                        trend = 'SHORT'
+                        confluence.append('BREAKOUT')
+                        tp_rr = 2.5
+                        atr_mult = 0.6
+            
+            if trend is None:
+                if current_rsi < 25:
+                    trend = 'LONG'
+                    confluence.append('EXTREME_OS')
+                    tp_rr = 2.0
+                    atr_mult = 0.7
+                elif current_rsi > 75:
+                    trend = 'SHORT'
+                    confluence.append('EXTREME_OB')
+                    tp_rr = 2.0
+                    atr_mult = 0.7
+                elif price > current_ema20 * 1.01:
+                    trend = 'LONG'
+                    confluence.append('EMA_BOUNCE')
+                    tp_rr = 2.0
+                    atr_mult = 0.7
+                elif price < current_ema20 * 0.99:
+                    trend = 'SHORT'
+                    confluence.append('EMA_BOUNCE')
+                    tp_rr = 2.0
+                    atr_mult = 0.7
+            
+            if trend is None:
+                continue
+            
             trend_type = 'bullish' if trend == 'LONG' else 'bearish'
             
-            rsi_confirms = (trend == 'LONG' and current_rsi < 50) or (trend == 'SHORT' and current_rsi > 50)
-            if not rsi_confirms:
-                continue
-            
-            active_obs = [ob for ob in obs if ob['idx'] < i and ob['idx'] not in used_obs and 
-                          i - ob['idx'] < 100 and ob['type'] == trend_type]
-            active_fvgs = [fvg for fvg in fvgs if fvg['idx'] < i and fvg['idx'] not in used_fvgs and 
-                           i - fvg['idx'] < 60 and fvg['type'] == trend_type]
+            active_obs = [ob for ob in obs if ob['idx'] < i and i - ob['idx'] < 50 and ob['type'] == trend_type]
+            active_fvgs = [fvg for fvg in fvgs if fvg['idx'] < i and i - fvg['idx'] < 30 and fvg['type'] == trend_type]
             curr_sweeps = [s for s in sweeps if s['idx'] == i and s['dir'] == trend_type]
             
             in_ob = any(ob['low'] <= price <= ob['high'] for ob in active_obs)
             in_fvg = any(fvg['low'] <= price <= fvg['high'] for fvg in active_fvgs)
             has_sweep = bool(curr_sweeps)
             
-            confluence = []
             if in_ob: confluence.append('OB')
             if in_fvg: confluence.append('FVG')
             if has_sweep: confluence.append('SWEEP')
-            confluence.append('RSI')
-            
-            min_conf = config.get('min_confluence', 2)
-            if len(confluence) < min_conf + 1:
-                continue
-            
-            for ob in active_obs:
-                if ob['low'] <= price <= ob['high']:
-                    used_obs.add(ob['idx'])
-                    break
-            for fvg in active_fvgs:
-                if fvg['low'] <= price <= fvg['high']:
-                    used_fvgs.add(fvg['idx'])
-                    break
             
             entry = price
-            atr = calculate_atr(candles[max(0, i-30):i+1])
             
             if trend == 'LONG':
                 sl = entry - atr * atr_mult
@@ -421,7 +533,7 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
                 tp = entry - (sl - entry) * tp_rr
             
             exit_reason = 'OPEN'
-            for j in range(i + 1, min(i + 80, len(candles))):
+            for j in range(i + 1, min(i + 60, len(candles))):
                 bar = candles[j]
                 if trend == 'LONG':
                     if bar['low'] <= sl:
@@ -441,6 +553,7 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
             if exit_reason == 'OPEN':
                 continue
             
+            last_signal_idx = i
             sl_pips = calculate_sl_pips(entry, sl, pip_size)
             
             all_signals.append({
