@@ -1,11 +1,13 @@
 """
 Strategy V3 Pro: Daily Swing Trading with Fibonacci + Weekly S/R
+Enhanced with optional Monthly S/R from 4H data
 
 Key Methods:
 - Optimal entry zone at 0.5-0.66 Fibonacci retracement (expanded from golden pocket)
 - Wyckoff Spring/Upthrust for reversal detection  
 - Break of Structure (BoS) confirmation
 - Weekly S/R levels as key confluence
+- OPTIONAL: Monthly S/R from 4H candle aggregation (if improves performance)
 - Trade duration: 2-8 days
 - Fibonacci Extension Take Profits at -0.25, -0.68, -1.0 levels
 
@@ -202,55 +204,85 @@ def find_weekly_sr_levels(weekly_candles: List[Dict], lookback: int = 12) -> Lis
     return sr_levels
 
 
-def extract_monthly_weekly_sr_from_4h(candles_4h: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
-    """
-    Extract Monthly and Weekly S/R levels from 4-hour candle data.
-    Groups 4H candles into monthly and weekly OHLC bars.
+def aggregate_daily_to_4h(daily_candles: List[Dict]) -> List[Dict]:
+    """Convert daily candles to 4H buckets by averaging."""
+    if len(daily_candles) < 2:
+        return daily_candles
     
-    Returns:
-        (monthly_sr_levels, weekly_sr_levels)
-    """
-    if len(candles_4h) < 100:
-        return [], []
+    candles_4h = {}
     
-    from datetime import datetime
-    
-    monthly_bars = {}
-    weekly_bars = {}
-    
-    for candle in candles_4h:
+    for candle in daily_candles:
         time_val = candle['time']
         if isinstance(time_val, str):
             try:
-                time_val = datetime.fromisoformat(time_val.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(time_val.replace('Z', '+00:00'))
             except:
                 continue
-        elif not isinstance(time_val, datetime):
-            continue
+        else:
+            dt = time_val
         
-        month_key = f"{time_val.year}-{time_val.month:02d}"
-        week_key = f"{time_val.year}-W{time_val.isocalendar()[1]:02d}"
+        hour_bucket = (dt.hour // 4) * 4
+        key = f"{dt.year}-{dt.month:02d}-{dt.day:02d}-{hour_bucket:02d}"
         
-        for key_dict, key in [(monthly_bars, month_key), (weekly_bars, week_key)]:
-            if key not in key_dict:
-                key_dict[key] = {
-                    'open': candle['open'],
-                    'high': candle['high'],
-                    'low': candle['low'],
-                    'close': candle['close']
-                }
-            else:
-                key_dict[key]['high'] = max(key_dict[key]['high'], candle['high'])
-                key_dict[key]['low'] = min(key_dict[key]['low'], candle['low'])
-                key_dict[key]['close'] = candle['close']
+        if key not in candles_4h:
+            candles_4h[key] = {
+                'open': candle['open'],
+                'high': candle['high'],
+                'low': candle['low'],
+                'close': candle['close']
+            }
+        else:
+            candles_4h[key]['high'] = max(candles_4h[key]['high'], candle['high'])
+            candles_4h[key]['low'] = min(candles_4h[key]['low'], candle['low'])
+            candles_4h[key]['close'] = candle['close']
+    
+    return [{'time': k, **v} for k, v in sorted(candles_4h.items())]
+
+
+def extract_monthly_sr_from_daily(daily_candles: List[Dict]) -> List[Dict]:
+    """Extract Monthly S/R levels by aggregating daily candles into monthly bars."""
+    if len(daily_candles) < 30:
+        return []
+    
+    monthly_bars = {}
+    
+    for candle in daily_candles:
+        time_val = candle['time']
+        if isinstance(time_val, str):
+            try:
+                dt = datetime.fromisoformat(time_val.replace('Z', '+00:00'))
+            except:
+                continue
+        else:
+            dt = time_val
+        
+        month_key = f"{dt.year}-{dt.month:02d}"
+        
+        if month_key not in monthly_bars:
+            monthly_bars[month_key] = {
+                'open': candle['open'],
+                'high': candle['high'],
+                'low': candle['low'],
+                'close': candle['close']
+            }
+        else:
+            monthly_bars[month_key]['high'] = max(monthly_bars[month_key]['high'], candle['high'])
+            monthly_bars[month_key]['low'] = min(monthly_bars[month_key]['low'], candle['low'])
+            monthly_bars[month_key]['close'] = candle['close']
     
     monthly_candles = [{'time': k, **v} for k, v in sorted(monthly_bars.items())]
-    weekly_candles = [{'time': k, **v} for k, v in sorted(weekly_bars.items())]
-    
-    monthly_sr = find_weekly_sr_levels(monthly_candles, lookback=min(12, len(monthly_candles)))
-    weekly_sr = find_weekly_sr_levels(weekly_candles, lookback=min(20, len(weekly_candles)))
-    
-    return monthly_sr, weekly_sr
+    return find_weekly_sr_levels(monthly_candles, lookback=min(12, len(monthly_candles)))
+
+
+def price_near_monthly_sr(price: float, monthly_sr: List[Dict], daily_atr: float) -> bool:
+    """Check if price is near a monthly S/R level."""
+    if not monthly_sr:
+        return False
+    buffer = daily_atr * 1.5
+    for sr in monthly_sr:
+        if abs(price - sr['price']) <= buffer:
+            return True
+    return False
 
 
 def price_near_weekly_sr(price: float, sr_levels: List[Dict], atr: float, buffer_mult: float = 0.5) -> Tuple[bool, str]:
@@ -318,10 +350,10 @@ def identify_supply_demand_zones(candles: List[Dict], atr: float) -> List[SwingZ
             if low_idx > high_idx:
                 range_size = high_price - low_price
                 if range_size > atr * 2:
-                    oez_low, oez_high = calculate_optimal_entry_zone(high_price, low_price, 'short')
+                    oez_high, oez_low = calculate_optimal_entry_zone(high_price, low_price, 'short')
                     
-                    zone_low = high_price - (atr * 0.5)
                     zone_high = high_price
+                    zone_low = high_price - (atr * 0.5)
                     
                     strength = 2 if range_size > atr * 4 else 1
                     
@@ -345,13 +377,13 @@ def identify_supply_demand_zones(candles: List[Dict], atr: float) -> List[SwingZ
 def detect_wyckoff_spring(candles: List[Dict], zone: SwingZone, atr: float, lookback: int = 10) -> bool:
     """
     Detect Wyckoff Spring pattern at demand zone.
-    Spring = Price breaks below support briefly (but not too deep), then reverses sharply back.
+    Spring = Price breaks below support briefly, then reverses sharply back.
     
     Strict criteria:
     - Break below support by less than 1 ATR (not a breakdown)
     - Close back above support
     - Next bar must be bullish with close above spring high
-    - Volume should ideally increase on reversal
+    - Pattern should trap bears
     """
     if zone.zone_type != 'demand' or len(candles) < lookback:
         return False
@@ -503,86 +535,13 @@ def detect_daily_trend(candles: List[Dict], lookback: int = 20) -> str:
     return 'neutral'
 
 
-def check_engulfing_candle(candles: List[Dict], direction: str) -> bool:
-    """Check for engulfing candle pattern."""
-    if len(candles) < 2:
-        return False
-    
-    current = candles[-1]
-    prev = candles[-2]
-    
-    if direction == 'long':
-        return (current['close'] > current['open'] and
-                prev['close'] < prev['open'] and
-                current['open'] < prev['close'] and
-                current['close'] > prev['open'])
-    else:
-        return (current['close'] < current['open'] and
-                prev['close'] > prev['open'] and
-                current['open'] > prev['close'] and
-                current['close'] < prev['open'])
-
-
-def check_rejection_candle(candles: List[Dict], zone: SwingZone, direction: str) -> bool:
-    """Check for rejection candle (pin bar) at zone."""
-    if len(candles) < 1:
-        return False
-    
-    bar = candles[-1]
-    body = abs(bar['close'] - bar['open'])
-    total_range = bar['high'] - bar['low']
-    
-    if total_range == 0:
-        return False
-    
-    body_ratio = body / total_range
-    
-    if body_ratio > 0.4:
-        return False
-    
-    if direction == 'long':
-        lower_wick = min(bar['open'], bar['close']) - bar['low']
-        return lower_wick > total_range * 0.5 and bar['low'] <= zone.high
-    else:
-        upper_wick = bar['high'] - max(bar['open'], bar['close'])
-        return upper_wick > total_range * 0.5 and bar['high'] >= zone.low
-
-
-def check_momentum_aligned(candles: List[Dict], direction: str, lookback: int = 5) -> bool:
-    """Check if recent momentum aligns with trade direction."""
-    if len(candles) < lookback + 1:
-        return False
-    
-    recent = candles[-(lookback+1):]
-    
-    bullish_bars = sum(1 for c in recent if c['close'] > c['open'])
-    bearish_bars = sum(1 for c in recent if c['close'] < c['open'])
-    
-    if direction == 'long':
-        return bullish_bars >= bearish_bars and recent[-1]['close'] > recent[-1]['open']
-    else:
-        return bearish_bars >= bullish_bars and recent[-1]['close'] < recent[-1]['open']
-
-
-def check_strong_impulse(candles: List[Dict], zone: SwingZone, direction: str, atr: float) -> bool:
-    """Check if there was a strong impulse move away from the zone (validates zone quality)."""
-    if len(candles) < 10:
-        return False
-    
-    if direction == 'long':
-        impulse_size = zone.swing_high - zone.swing_low
-        return impulse_size > atr * 3
-    else:
-        impulse_size = zone.swing_high - zone.swing_low
-        return impulse_size > atr * 3
-
-
 def generate_v3_pro_signal(
     symbol: str,
     daily_candles: List[Dict],
     weekly_candles: List[Dict],
     min_rr: float = 2.5,
-    min_confluence: int = 3
+    min_confluence: int = 3,
+    use_monthly_sr: bool = False
 ) -> Optional[TradeSignal]:
     """
     Generate V3 Pro trading signal - FIBONACCI + WEEKLY S/R VERSION.
@@ -596,6 +555,7 @@ def generate_v3_pro_signal(
     Key Features:
     - Optimal Entry Zone: 0.5-0.66 Fib retracement (wider than golden pocket)
     - Weekly S/R levels as confluence
+    - OPTIONAL: Monthly S/R levels (if use_monthly_sr=True)
     - Break of Structure (BoS) confirmation
     - Stop Loss at 1.0 Fib level (swing high/low with buffer)
     - Fibonacci Extension TPs at -0.25, -0.68, -1.0
@@ -619,6 +579,10 @@ def generate_v3_pro_signal(
     daily_trend = detect_daily_trend(daily_candles, 20)
     
     weekly_sr_levels = find_weekly_sr_levels(weekly_candles, lookback=12)
+    
+    monthly_sr = []
+    if use_monthly_sr:
+        monthly_sr = extract_monthly_sr_from_daily(daily_candles)
     
     daily_zones = identify_supply_demand_zones(daily_candles, daily_atr)
     weekly_zones = identify_supply_demand_zones(weekly_candles, weekly_atr)
@@ -654,75 +618,46 @@ def generate_v3_pro_signal(
             confluence += 2
             reasoning_parts.append("Price in Optimal Entry Zone (0.5-0.66 Fib)")
             entry_type = 'optimal_zone'
-        elif at_zone:
+        
+        if at_zone:
             confluence += 1
             reasoning_parts.append(f"Price at {zone.zone_type} zone")
         
+        if timeframe == 'weekly':
+            confluence += 2
+            reasoning_parts.append("Weekly zone confluence")
+        
+        near_weekly_sr, sr_type = price_near_weekly_sr(current_price, weekly_sr_levels, daily_atr, 0.5)
+        if near_weekly_sr:
+            confluence += 1
+            reasoning_parts.append(f"Near weekly {sr_type}")
+        
+        if use_monthly_sr and price_near_monthly_sr(current_price, monthly_sr, daily_atr):
+            confluence += 1
+            reasoning_parts.append("Near monthly S/R")
+        
+        if daily_trend == 'bullish' and direction == 'long':
+            confluence += 1
+            reasoning_parts.append("Bullish daily trend")
+        elif daily_trend == 'bearish' and direction == 'short':
+            confluence += 1
+            reasoning_parts.append("Bearish daily trend")
+        
         bos_detected, bos_level = detect_break_of_structure(daily_candles, direction, 20)
         if bos_detected:
-            confluence += 2
-            reasoning_parts.append(f"Break of Structure at {bos_level:.5f}")
-            if entry_type is None:
-                entry_type = 'bos_entry'
-        
-        near_weekly_sr, sr_type = price_near_weekly_sr(current_price, weekly_sr_levels, daily_atr)
-        if near_weekly_sr:
-            if (direction == 'long' and sr_type == 'support') or \
-               (direction == 'short' and sr_type == 'resistance'):
-                confluence += 2
-                reasoning_parts.append(f"Near Weekly {sr_type.upper()}")
-        
-        if direction == 'long' and detect_wyckoff_spring(daily_candles, zone, daily_atr):
-            confluence += 2
-            reasoning_parts.append("Wyckoff Spring detected")
-            entry_type = 'wyckoff_spring'
-        elif direction == 'short' and detect_wyckoff_upthrust(daily_candles, zone, daily_atr):
-            confluence += 2
-            reasoning_parts.append("Wyckoff Upthrust detected")
-            entry_type = 'wyckoff_upthrust'
-        
-        if check_rejection_candle(daily_candles, zone, direction):
             confluence += 1
-            reasoning_parts.append("Rejection candle at zone")
-            if entry_type is None:
-                entry_type = 'rejection'
+            reasoning_parts.append("Break of Structure confirmed")
         
-        if check_engulfing_candle(daily_candles, direction):
+        has_confirmation = False
+        if detect_wyckoff_spring(daily_candles, zone, daily_atr, 10):
             confluence += 1
-            reasoning_parts.append("Engulfing pattern")
-            if entry_type is None:
-                entry_type = 'engulfing'
+            has_confirmation = True
+            reasoning_parts.append("Wyckoff spring pattern")
         
-        if (direction == 'long' and daily_trend == 'bullish') or \
-           (direction == 'short' and daily_trend == 'bearish'):
+        if detect_wyckoff_upthrust(daily_candles, zone, daily_atr, 10):
             confluence += 1
-            reasoning_parts.append(f"Daily trend aligned: {daily_trend}")
-        
-        if timeframe == 'weekly':
-            confluence += 1
-            reasoning_parts.append("Weekly timeframe zone")
-        
-        if zone.strength >= 2:
-            confluence += 1
-            reasoning_parts.append("Strong zone (large impulse)")
-        
-        if check_momentum_aligned(daily_candles, direction, 3):
-            confluence += 1
-            reasoning_parts.append("Momentum aligned")
-        
-        if check_strong_impulse(daily_candles, zone, direction, daily_atr):
-            confluence += 1
-            reasoning_parts.append("Strong impulse from zone")
-        
-        if confluence < min_confluence:
-            continue
-        
-        has_confirmation = (
-            entry_type in ['wyckoff_spring', 'wyckoff_upthrust', 'bos_entry'] or
-            check_rejection_candle(daily_candles, zone, direction) or
-            check_engulfing_candle(daily_candles, direction) or
-            bos_detected
-        )
+            has_confirmation = True
+            reasoning_parts.append("Wyckoff upthrust pattern")
         
         if not has_confirmation and entry_type == 'optimal_zone':
             continue
@@ -808,15 +743,16 @@ def backtest_v3_pro(
     max_daily_trades: int = 1,
     day_stagger: bool = True,
     partial_tp: bool = True,
-    partial_tp_r: float = 1.5
+    partial_tp_r: float = 1.5,
+    use_monthly_sr: bool = False
 ) -> List[Dict]:
     """
-    Backtest V3 Pro strategy on daily timeframe with AGGRESSIVE settings.
+    Backtest V3 Pro strategy on daily timeframe.
     
-    AGGRESSIVE FEATURES:
+    FEATURES:
     - partial_tp: Close 50% at partial_tp_r (1.5R) to lock in profitable day
     - day_stagger: Limit 1 trade per day to spread wins across calendar days
-    - Helps meet 5%ers "3 profitable days" requirement
+    - use_monthly_sr: OPTIONAL - Use monthly S/R for additional confluence
     
     Trades held for 2-8 days typically.
     """
@@ -855,7 +791,8 @@ def backtest_v3_pro(
             daily_candles=daily_slice,
             weekly_candles=weekly_slice,
             min_rr=min_rr,
-            min_confluence=min_confluence
+            min_confluence=min_confluence,
+            use_monthly_sr=use_monthly_sr
         )
         
         if signal is None:

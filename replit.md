@@ -40,6 +40,7 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 | Timeframe | Daily only (2-8 day trade duration) |
 | Entry Zones | Supply/Demand zones + 0.5-0.66 Fibonacci retracement (Optimal Entry Zone) |
 | Weekly S/R | Weekly support/resistance confluence scoring |
+| Monthly S/R | Optional - extracted from daily candle aggregation (if improves performance) |
 | BoS Confirmation | Break of Structure validation before entry |
 | Stop Loss | Swing high/low (1.0 Fib level) + ATR buffer |
 | Take Profit | Fibonacci extensions: -0.25 (TP1), -0.68 (TP2), -1.0 (TP3) |
