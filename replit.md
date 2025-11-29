@@ -4,11 +4,17 @@
 
 Blueprint Trader AI is an automated trading signal bot designed to identify high-probability trading opportunities across multiple markets (forex, metals, indices, energies, crypto). The bot integrates with Discord for signal delivery and utilizes OANDA's practice API for market data. Its core purpose is to provide automated, risk-managed trading signals, adhering to 5%ers High Stakes challenge rules.
 
-## 5%ERS 10K CHALLENGE IMPLEMENTATION
+## 5%ERS HIGH STAKES 10K CHALLENGE (2-STEP)
 
-### Challenge Rules (Implemented in `challenge_5ers.py`)
-- **Step 1**: 8% profit target ($800 on $10,000 account)
-- **Step 2**: 5% profit target (based on new starting balance after Step 1)
+This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to pass.
+
+### Challenge Rules (Implemented in `challenge_5ers.py` and `challenge_simulator.py`)
+| Step | Profit Target | On $10K Account |
+|------|---------------|-----------------|
+| **Step 1** | 8% | $800 profit needed |
+| **Step 2** | 5% | $500+ profit (from new balance) |
+
+**Risk Limits:**
 - **Maximum Drawdown**: 10% ($1,000 - cannot drop below $9,000)
 - **Daily Drawdown**: 5% ($500 max loss per day)
 - **Minimum Profitable Days**: 3 days required per step
