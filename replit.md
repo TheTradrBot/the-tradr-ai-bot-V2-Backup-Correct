@@ -31,18 +31,18 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 
 ## CURRENT LIVE STRATEGY: V3 Pro (November 2025)
 
-### V3 Pro - Daily S/D + Golden Pocket + Wyckoff (LIVE)
-**User's strict requirements**: NO RSI, NO MACD, NO SMC, NO Fibonacci for TPs.
+### V3 Pro - Fibonacci-Based TradingView Approach (LIVE)
+**Strategy aligned with user's TradingView setups**: NO RSI, NO MACD, NO SMC
 
 | Component | Implementation |
 |-----------|----------------|
 | Timeframe | Daily only (2-8 day trade duration) |
-| Entry Zones | Supply/Demand zones from Daily/Weekly |
-| Golden Pocket | Entries at 0.618-0.65 retracement (Fib for ENTRIES only) |
-| Wyckoff | Spring (demand) / Upthrust (supply) patterns |
-| Trend Filter | EMA 10/20 crossover + swing structure |
-| Stop Loss | Zone boundary + 0.3 ATR buffer (min 0.75 ATR) |
-| Take Profit | Structural swing levels (1.5R-8R capped) |
+| Entry Zones | Supply/Demand zones + 0.5-0.66 Fibonacci retracement (Optimal Entry Zone) |
+| Weekly S/R | Weekly support/resistance confluence scoring |
+| BoS Confirmation | Break of Structure validation before entry |
+| Stop Loss | Swing high/low (1.0 Fib level) + ATR buffer |
+| Take Profit | Fibonacci extensions: -0.25 (TP1), -0.68 (TP2), -1.0 (TP3) |
+| Partial TP | 50% closed at 1.5R, SL moves to breakeven |
 | Break-Even | Moves SL to entry at +1R |
 
 **2024 Backtest Results (MEGA Portfolio - 35 Assets):**
@@ -106,8 +106,8 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
 ## User Preferences
 
 - Preferred communication style: Simple, everyday language
-- Strategy requirement: NO RSI, NO MACD, NO SMC, NO Fibonacci for TPs
-- Focus: Archer Academy / Forex Dictionary style Supply/Demand zones
+- Strategy requirement: NO RSI, NO MACD, NO SMC
+- Focus: Fibonacci-based TradingView approach with 0.5-0.66 entry zones and Fib extension TPs
 
 ## System Architecture
 
