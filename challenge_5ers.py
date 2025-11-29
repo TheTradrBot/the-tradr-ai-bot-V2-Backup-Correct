@@ -363,28 +363,126 @@ def check_max_drawdown(state: ChallengeState, potential_loss: float) -> bool:
     return (state.current_balance - potential_loss) >= min_equity
 
 
-def detect_market_regime(candles: List[Dict], ema_short: List[float], ema_long: List[float], atr: float) -> str:
-    """Detect market regime: TRENDING, RANGING, or VOLATILE."""
-    if len(candles) < 20 or len(ema_short) < 5 or len(ema_long) < 5:
-        return 'UNKNOWN'
+def find_swing_points(candles: List[Dict], lookback: int = 5) -> Tuple[List[Dict], List[Dict]]:
+    """Find swing highs and lows for S/R identification."""
+    swing_highs = []
+    swing_lows = []
     
-    recent_closes = [c['close'] for c in candles[-20:]]
-    price_range = max(recent_closes) - min(recent_closes)
-    avg_price = sum(recent_closes) / len(recent_closes)
-    range_pct = price_range / avg_price * 100
+    for i in range(lookback, len(candles) - lookback):
+        is_swing_high = True
+        is_swing_low = True
+        
+        for j in range(1, lookback + 1):
+            if candles[i]['high'] <= candles[i - j]['high'] or candles[i]['high'] <= candles[i + j]['high']:
+                is_swing_high = False
+            if candles[i]['low'] >= candles[i - j]['low'] or candles[i]['low'] >= candles[i + j]['low']:
+                is_swing_low = False
+        
+        if is_swing_high:
+            swing_highs.append({'idx': i, 'price': candles[i]['high'], 'time': candles[i]['time']})
+        if is_swing_low:
+            swing_lows.append({'idx': i, 'price': candles[i]['low'], 'time': candles[i]['time']})
     
-    ema_diff = abs(ema_short[-1] - ema_long[-1]) / avg_price * 100
+    return swing_highs, swing_lows
+
+
+def detect_market_structure(swing_highs: List[Dict], swing_lows: List[Dict], current_idx: int) -> Dict:
+    """Detect market structure: HH/HL (bullish) or LH/LL (bearish)."""
+    recent_highs = [h for h in swing_highs if h['idx'] < current_idx][-4:]
+    recent_lows = [l for l in swing_lows if l['idx'] < current_idx][-4:]
     
-    if range_pct > 3 and ema_diff > 0.5:
-        return 'TRENDING'
-    elif range_pct < 1.5:
-        return 'RANGING'
+    if len(recent_highs) < 2 or len(recent_lows) < 2:
+        return {'bias': 'NEUTRAL', 'structure': []}
+    
+    hh_count = sum(1 for i in range(1, len(recent_highs)) if recent_highs[i]['price'] > recent_highs[i-1]['price'])
+    hl_count = sum(1 for i in range(1, len(recent_lows)) if recent_lows[i]['price'] > recent_lows[i-1]['price'])
+    
+    lh_count = sum(1 for i in range(1, len(recent_highs)) if recent_highs[i]['price'] < recent_highs[i-1]['price'])
+    ll_count = sum(1 for i in range(1, len(recent_lows)) if recent_lows[i]['price'] < recent_lows[i-1]['price'])
+    
+    if hh_count >= 1 and hl_count >= 1:
+        return {'bias': 'BULLISH', 'structure': ['HH', 'HL'], 'last_low': recent_lows[-1] if recent_lows else None}
+    elif lh_count >= 1 and ll_count >= 1:
+        return {'bias': 'BEARISH', 'structure': ['LH', 'LL'], 'last_high': recent_highs[-1] if recent_highs else None}
     else:
-        return 'VOLATILE'
+        return {'bias': 'NEUTRAL', 'structure': []}
+
+
+def find_demand_zones(candles: List[Dict], swing_lows: List[Dict]) -> List[Dict]:
+    """Find demand zones (buy zones) at significant lows followed by impulse moves up."""
+    zones = []
+    for low in swing_lows:
+        idx = low['idx']
+        if idx + 3 >= len(candles):
+            continue
+        
+        impulse_move = candles[idx + 3]['close'] - candles[idx]['low']
+        avg_range = sum(c['high'] - c['low'] for c in candles[max(0, idx-10):idx]) / 10 if idx >= 10 else 0.01
+        
+        if impulse_move > avg_range * 2:
+            zone_high = candles[idx]['open'] if candles[idx]['close'] > candles[idx]['open'] else candles[idx]['close']
+            zone_low = candles[idx]['low']
+            zones.append({'idx': idx, 'high': zone_high, 'low': zone_low, 'type': 'demand', 'strength': impulse_move / avg_range})
+    
+    return zones
+
+
+def find_supply_zones(candles: List[Dict], swing_highs: List[Dict]) -> List[Dict]:
+    """Find supply zones (sell zones) at significant highs followed by impulse moves down."""
+    zones = []
+    for high in swing_highs:
+        idx = high['idx']
+        if idx + 3 >= len(candles):
+            continue
+        
+        impulse_move = candles[idx]['high'] - candles[idx + 3]['close']
+        avg_range = sum(c['high'] - c['low'] for c in candles[max(0, idx-10):idx]) / 10 if idx >= 10 else 0.01
+        
+        if impulse_move > avg_range * 2:
+            zone_low = candles[idx]['open'] if candles[idx]['close'] < candles[idx]['open'] else candles[idx]['close']
+            zone_high = candles[idx]['high']
+            zones.append({'idx': idx, 'high': zone_high, 'low': zone_low, 'type': 'supply', 'strength': impulse_move / avg_range})
+    
+    return zones
+
+
+def check_3_candle_rule(candles: List[Dict], zone_high: float, zone_low: float, direction: str, start_idx: int) -> bool:
+    """Check if 3 consecutive candles hold inside the zone (V3 entry confirmation)."""
+    if start_idx + 3 >= len(candles):
+        return False
+    
+    consecutive_holds = 0
+    for j in range(3):
+        c = candles[start_idx + j]
+        if direction == 'LONG':
+            if c['close'] >= zone_low and c['low'] >= zone_low * 0.998:
+                consecutive_holds += 1
+            else:
+                consecutive_holds = 0
+        else:
+            if c['close'] <= zone_high and c['high'] <= zone_high * 1.002:
+                consecutive_holds += 1
+            else:
+                consecutive_holds = 0
+    
+    return consecutive_holds >= 3
+
+
+def find_structure_target(swing_highs: List[Dict], swing_lows: List[Dict], direction: str, entry_idx: int, entry_price: float) -> Optional[float]:
+    """Find structure-based TP (prior swing high/low) instead of Fib extensions."""
+    if direction == 'LONG':
+        future_targets = [h['price'] for h in swing_highs if h['idx'] < entry_idx and h['price'] > entry_price]
+        if future_targets:
+            return max(future_targets[-3:]) if len(future_targets) >= 3 else max(future_targets)
+    else:
+        future_targets = [l['price'] for l in swing_lows if l['idx'] < entry_idx and l['price'] < entry_price]
+        if future_targets:
+            return min(future_targets[-3:]) if len(future_targets) >= 3 else min(future_targets)
+    return None
 
 
 def run_challenge_backtest(month: int, year: int) -> Dict:
-    """Run backtest for a specific month simulating the 5%ers challenge with multi-strategy approach."""
+    """Run backtest using V3 HTF Confluence Strategy with Archer EMA methodology."""
     
     target_month = f"{year}-{month:02d}"
     
@@ -399,17 +497,17 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
         pip_size = config['pip_size']
         
         closes = [c['close'] for c in candles]
-        ema_20 = calculate_ema(closes, 20)
-        ema_50 = calculate_ema(closes, 50)
-        rsi = calculate_rsi(closes, 14)
-        obs = find_order_blocks(candles)
-        fvgs = find_fair_value_gaps(candles)
-        sweeps = find_liquidity_sweeps(candles)
+        ema_21 = calculate_ema(closes, 21)
+        ema_86 = calculate_ema(closes, 86)
+        
+        swing_highs, swing_lows = find_swing_points(candles, lookback=5)
+        demand_zones = find_demand_zones(candles, swing_lows)
+        supply_zones = find_supply_zones(candles, swing_highs)
         
         last_signal_idx = 0
-        cooldown = 2
+        cooldown = 3
         
-        for i in range(100, len(candles) - 1):
+        for i in range(100, len(candles) - 4):
             candle_month = candles[i]['time'][:7]
             if candle_month != target_month:
                 continue
@@ -418,122 +516,127 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
                 continue
             
             price = candles[i]['close']
-            candle = candles[i]
-            prev_candle = candles[i-1]
             
-            ema20_idx = i - 20
-            ema50_idx = i - 50
-            rsi_idx = i - 1
+            ema21_idx = i - 21
+            ema86_idx = i - 86
             
-            if ema20_idx < 0 or ema50_idx < 0 or rsi_idx < 0:
+            if ema21_idx < 0 or ema86_idx < 0:
                 continue
-            if ema20_idx >= len(ema_20) or ema50_idx >= len(ema_50) or rsi_idx >= len(rsi):
+            if ema21_idx >= len(ema_21) or ema86_idx >= len(ema_86):
                 continue
             
-            current_ema20 = ema_20[ema20_idx]
-            current_ema50 = ema_50[ema50_idx]
-            current_rsi = rsi[rsi_idx]
-            atr = calculate_atr(candles[max(0, i-30):i+1])
+            current_ema21 = ema_21[ema21_idx]
+            current_ema86 = ema_86[ema86_idx]
+            prev_ema21 = ema_21[ema21_idx - 1] if ema21_idx > 0 else current_ema21
+            prev_ema86 = ema_86[ema86_idx - 1] if ema86_idx > 0 else current_ema86
             
-            regime = detect_market_regime(candles[max(0, i-30):i+1], 
-                                          ema_20[max(0, ema20_idx-10):ema20_idx+1],
-                                          ema_50[max(0, ema50_idx-10):ema50_idx+1],
-                                          atr)
+            atr = calculate_atr(candles[max(0, i-20):i+1])
+            
+            structure = detect_market_structure(swing_highs, swing_lows, i)
+            
+            ema_bullish = current_ema21 > current_ema86 and prev_ema21 <= prev_ema86
+            ema_bearish = current_ema21 < current_ema86 and prev_ema21 >= prev_ema86
+            ema_bull_trend = current_ema21 > current_ema86
+            ema_bear_trend = current_ema21 < current_ema86
             
             trend = None
             confluence = []
-            tp_rr = 2.0
-            atr_mult = 0.6
             
-            if regime == 'TRENDING':
-                if price > current_ema20 > current_ema50 and current_rsi > 50:
-                    trend = 'LONG'
-                    confluence.append('TREND_UP')
-                    tp_rr = 3.0
-                    atr_mult = 0.5
-                elif price < current_ema20 < current_ema50 and current_rsi < 50:
-                    trend = 'SHORT'
-                    confluence.append('TREND_DOWN')
-                    tp_rr = 3.0
-                    atr_mult = 0.5
+            active_demand = [z for z in demand_zones if z['idx'] < i and i - z['idx'] < 60 and z['low'] <= price <= z['high'] * 1.01]
+            active_supply = [z for z in supply_zones if z['idx'] < i and i - z['idx'] < 60 and z['low'] * 0.99 <= price <= z['high']]
             
-            elif regime == 'RANGING':
-                if current_rsi < 30:
-                    trend = 'LONG'
-                    confluence.append('RSI_OS')
-                    tp_rr = 1.5
-                    atr_mult = 0.8
-                elif current_rsi > 70:
-                    trend = 'SHORT'
-                    confluence.append('RSI_OB')
-                    tp_rr = 1.5
-                    atr_mult = 0.8
-            
-            else:
-                body = abs(candle['close'] - candle['open'])
-                total_range = candle['high'] - candle['low']
-                if total_range > 0 and body / total_range > 0.6:
-                    if candle['close'] > candle['open'] and current_rsi < 65:
+            if structure['bias'] == 'BULLISH' and ema_bull_trend:
+                if active_demand:
+                    best_zone = max(active_demand, key=lambda x: x['strength'])
+                    if check_3_candle_rule(candles, best_zone['high'], best_zone['low'], 'LONG', i):
                         trend = 'LONG'
-                        confluence.append('BREAKOUT')
-                        tp_rr = 2.5
-                        atr_mult = 0.6
-                    elif candle['close'] < candle['open'] and current_rsi > 35:
+                        confluence.append('HTF_BULLISH')
+                        confluence.append('DEMAND_ZONE')
+                        confluence.append('EMA_TREND')
+                        confluence.append('3_CANDLE_HOLD')
+                elif ema_bullish:
+                    trend = 'LONG'
+                    confluence.append('HTF_BULLISH')
+                    confluence.append('EMA_CROSS')
+                elif price < current_ema21 < current_ema86 * 1.005:
+                    trend = 'LONG'
+                    confluence.append('HTF_BULLISH')
+                    confluence.append('EMA_PULLBACK')
+            
+            elif structure['bias'] == 'BEARISH' and ema_bear_trend:
+                if active_supply:
+                    best_zone = max(active_supply, key=lambda x: x['strength'])
+                    if check_3_candle_rule(candles, best_zone['high'], best_zone['low'], 'SHORT', i):
                         trend = 'SHORT'
-                        confluence.append('BREAKOUT')
-                        tp_rr = 2.5
-                        atr_mult = 0.6
+                        confluence.append('HTF_BEARISH')
+                        confluence.append('SUPPLY_ZONE')
+                        confluence.append('EMA_TREND')
+                        confluence.append('3_CANDLE_HOLD')
+                elif ema_bearish:
+                    trend = 'SHORT'
+                    confluence.append('HTF_BEARISH')
+                    confluence.append('EMA_CROSS')
+                elif price > current_ema21 > current_ema86 * 0.995:
+                    trend = 'SHORT'
+                    confluence.append('HTF_BEARISH')
+                    confluence.append('EMA_PULLBACK')
             
             if trend is None:
-                if current_rsi < 25:
+                if ema_bullish and price > current_ema21:
                     trend = 'LONG'
-                    confluence.append('EXTREME_OS')
-                    tp_rr = 2.0
-                    atr_mult = 0.7
-                elif current_rsi > 75:
+                    confluence.append('EMA_CROSS_ENTRY')
+                elif ema_bearish and price < current_ema21:
                     trend = 'SHORT'
-                    confluence.append('EXTREME_OB')
-                    tp_rr = 2.0
-                    atr_mult = 0.7
-                elif price > current_ema20 * 1.01:
+                    confluence.append('EMA_CROSS_ENTRY')
+            
+            if trend is None and ema_bull_trend:
+                if price > current_ema21 and price < current_ema21 * 1.02:
                     trend = 'LONG'
-                    confluence.append('EMA_BOUNCE')
-                    tp_rr = 2.0
-                    atr_mult = 0.7
-                elif price < current_ema20 * 0.99:
+                    confluence.append('EMA_TREND_CONT')
+            
+            if trend is None and ema_bear_trend:
+                if price < current_ema21 and price > current_ema21 * 0.98:
                     trend = 'SHORT'
-                    confluence.append('EMA_BOUNCE')
-                    tp_rr = 2.0
-                    atr_mult = 0.7
+                    confluence.append('EMA_TREND_CONT')
+            
+            if trend is None:
+                candle = candles[i]
+                body = abs(candle['close'] - candle['open'])
+                total_range = candle['high'] - candle['low']
+                if total_range > 0 and body / total_range > 0.7:
+                    if candle['close'] > candle['open'] and ema_bull_trend:
+                        trend = 'LONG'
+                        confluence.append('STRONG_CANDLE')
+                    elif candle['close'] < candle['open'] and ema_bear_trend:
+                        trend = 'SHORT'
+                        confluence.append('STRONG_CANDLE')
             
             if trend is None:
                 continue
             
-            trend_type = 'bullish' if trend == 'LONG' else 'bearish'
-            
-            active_obs = [ob for ob in obs if ob['idx'] < i and i - ob['idx'] < 50 and ob['type'] == trend_type]
-            active_fvgs = [fvg for fvg in fvgs if fvg['idx'] < i and i - fvg['idx'] < 30 and fvg['type'] == trend_type]
-            curr_sweeps = [s for s in sweeps if s['idx'] == i and s['dir'] == trend_type]
-            
-            in_ob = any(ob['low'] <= price <= ob['high'] for ob in active_obs)
-            in_fvg = any(fvg['low'] <= price <= fvg['high'] for fvg in active_fvgs)
-            has_sweep = bool(curr_sweeps)
-            
-            if in_ob: confluence.append('OB')
-            if in_fvg: confluence.append('FVG')
-            if has_sweep: confluence.append('SWEEP')
-            
             entry = price
             
+            structure_tp = find_structure_target(swing_highs, swing_lows, trend, i, entry)
+            
             if trend == 'LONG':
-                sl = entry - atr * atr_mult
-                tp = entry + (entry - sl) * tp_rr
+                sl = entry - atr * 0.8
+                if structure_tp and structure_tp > entry:
+                    tp = structure_tp
+                else:
+                    tp = entry + atr * 3.0
             else:
-                sl = entry + atr * atr_mult
-                tp = entry - (sl - entry) * tp_rr
+                sl = entry + atr * 0.8
+                if structure_tp and structure_tp < entry:
+                    tp = structure_tp
+                else:
+                    tp = entry - atr * 3.0
+            
+            rr_ratio = abs(tp - entry) / abs(entry - sl) if abs(entry - sl) > 0 else 0
+            if rr_ratio < 1.5:
+                continue
             
             exit_reason = 'OPEN'
-            for j in range(i + 1, min(i + 60, len(candles))):
+            for j in range(i + 1, min(i + 80, len(candles))):
                 bar = candles[j]
                 if trend == 'LONG':
                     if bar['low'] <= sl:
@@ -564,7 +667,7 @@ def run_challenge_backtest(month: int, year: int) -> Dict:
                 'entry': entry,
                 'sl': sl,
                 'tp': tp,
-                'tp_rr': tp_rr,
+                'tp_rr': rr_ratio,
                 'sl_pips': sl_pips,
                 'pip_value': pip_value,
                 'result': exit_reason,
