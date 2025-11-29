@@ -527,11 +527,13 @@ def load_candles_with_fallback(symbol: str, granularity: str = 'H4') -> List[Dic
     """Load candles from CSV if available, otherwise use OANDA API."""
     try:
         from data_loader import load_ohlcv_from_csv, resample_to_timeframe, df_to_candle_list
+        import numpy as np
         df = load_ohlcv_from_csv(symbol)
         
         if granularity != 'H1' and len(df) > 1000:
-            time_diff = (df.index[1] - df.index[0]).total_seconds() / 3600
-            if time_diff <= 1:
+            diffs = np.diff(df.index[:100].astype(np.int64)) / 1e9 / 3600
+            median_diff = np.median(diffs[diffs > 0]) if len(diffs[diffs > 0]) > 0 else 24
+            if median_diff <= 1.5:
                 df = resample_to_timeframe(df, granularity)
         
         candles = df_to_candle_list(df)
