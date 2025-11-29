@@ -601,25 +601,47 @@ def backtest_archer_strategy(
             if bars_waiting >= 3:
                 continue
             
+            zone_key = f"{sig.zone.zone_type}_{sig.zone.high}_{sig.zone.low}"
+            if zone_key in zone_retests:
+                continue
+            
             bos = detect_bos_at_zone(h4_slice, sig.zone)
             if bos == 'confirmed':
+                entry = current_bar['close']
+                h4_atr = calculate_atr(h4_slice, 14)
+                
+                if sig.direction == 'long':
+                    sl = sig.zone.low - (h4_atr * 0.25)
+                else:
+                    sl = sig.zone.high + (h4_atr * 0.25)
+                
+                tp = find_structural_target(h4_slice, entry, sl, sig.direction, min_rr)
+                
+                if tp is None:
+                    continue
+                
+                risk = abs(entry - sl)
+                reward = abs(tp - entry)
+                rr_ratio = reward / risk if risk > 0 else 0
+                
+                if rr_ratio < min_rr:
+                    continue
+                
+                zone_retests[zone_key] = True
+                
                 signal = TradeSignal(
                     symbol=sig.symbol,
                     direction=sig.direction,
-                    entry=current_bar['close'],
-                    stop_loss=sig.stop_loss,
-                    take_profit=sig.take_profit,
+                    entry=entry,
+                    stop_loss=sl,
+                    take_profit=tp,
                     zone=sig.zone,
                     status='ACTIVE',
                     confluence=sig.confluence + 1,
                     reasoning=sig.reasoning + " | BOS confirmed",
-                    rr_ratio=sig.rr_ratio,
+                    rr_ratio=rr_ratio,
                     timestamp=current_bar['time']
                 )
-                
-                entry = current_bar['close']
-                sl = signal.stop_loss
-                tp = signal.take_profit
                 
                 hit_tp = False
                 hit_sl = False
@@ -721,10 +743,15 @@ def backtest_archer_strategy(
         if signal is None:
             continue
         
+        zone_key = f"{signal.zone.zone_type}_{signal.zone.high}_{signal.zone.low}"
+        if zone_key in zone_retests:
+            continue
+        
         if signal.status == 'WATCHING':
             pending_signals.append((signal, 0))
             continue
         
+        zone_retests[zone_key] = True
         entry = signal.entry
         sl = signal.stop_loss
         tp = signal.take_profit
