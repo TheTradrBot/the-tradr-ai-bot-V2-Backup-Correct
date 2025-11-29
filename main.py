@@ -592,10 +592,10 @@ async def backtest_cmd(interaction: discord.Interaction, asset: str, date_range:
             run_v3_pro_backtest_for_asset,
             asset_clean,
             start_year,
-            min_rr=1.5,
+            min_rr=2.0,
             min_confluence=2,
             partial_tp=True,
-            partial_tp_r=1.0,
+            partial_tp_r=1.5,
             start_month=start_month,
             end_month=end_month
         )

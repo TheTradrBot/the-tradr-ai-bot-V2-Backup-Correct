@@ -269,11 +269,12 @@ def run_v3_pro_backtest_for_asset(
             except:
                 return datetime.min
         
+        from calendar import monthrange
+        
         warmup_start = datetime(year, start_month, 1) - td(days=120)
         weekly_warmup_start = datetime(year, start_month, 1) - td(days=400)
-        range_end = datetime(year, end_month, 28)
-        if end_month == 12:
-            range_end = datetime(year, 12, 31)
+        last_day = monthrange(year, end_month)[1]
+        range_end = datetime(year, end_month, last_day, 23, 59, 59)
         
         filtered_daily = []
         for c in daily_candles:
@@ -303,7 +304,8 @@ def run_v3_pro_backtest_for_asset(
         if start_month > 1 or end_month < 12:
             filtered_trades = []
             target_start = datetime(year, start_month, 1)
-            target_end = datetime(year, end_month, 28)
+            target_last_day = monthrange(year, end_month)[1]
+            target_end = datetime(year, end_month, target_last_day, 23, 59, 59)
             
             for t in trades:
                 entry_time_str = t.get('entry_time', '')
