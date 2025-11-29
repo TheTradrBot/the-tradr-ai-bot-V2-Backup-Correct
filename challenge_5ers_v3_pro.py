@@ -13,6 +13,7 @@ import calendar
 from data import get_ohlcv, get_ohlcv_range
 from strategy_v3_pro import backtest_v3_pro, calculate_backtest_stats
 from challenge_simulator import simulate_challenge
+from challenge_risk_manager import simulate_with_concurrent_tracking, RiskConfig
 
 
 ASSETS = [
@@ -496,7 +497,17 @@ def run_portfolio_month_challenge(
     
     all_trades.sort(key=lambda t: t['entry_time'])
     
-    result = simulate_challenge(all_trades)
+    config = RiskConfig(
+        base_risk_pct=2.0,
+        reduced_risk_pct=1.0,
+        min_risk_pct=0.5,
+        max_total_exposure_pct=4.0,
+        partial_tp_r=1.0,
+        partial_close_pct=50.0,
+        round_trip_fee_pct=0.30,
+    )
+    
+    result = simulate_with_concurrent_tracking(all_trades, config)
     
     wins = len([t for t in all_trades if t.get('result') in ['WIN', 'PARTIAL_WIN']])
     win_rate = (wins / len(all_trades) * 100) if all_trades else 0
@@ -509,17 +520,18 @@ def run_portfolio_month_challenge(
         'total_trades': len(all_trades),
         'step1_passed': result.get('step1_passed', False),
         'step2_passed': result.get('step2_passed', False),
-        'total_pnl': result.get('final_balance', 10000) - 10000,
+        'total_pnl': result.get('total_pnl', 0),
         'final_balance': result.get('final_balance', 10000),
         'profitable_days': result.get('profitable_days', 0),
         'max_drawdown': result.get('max_drawdown', 0),
         'daily_drawdown_hit': result.get('daily_dd_breach', False),
         'blown': result.get('blown', False),
         'blown_reason': result.get('blown_reason', ''),
-        'win_rate': win_rate,
+        'win_rate': result.get('win_rate', win_rate),
         'total_r': total_r,
         'asset_breakdown': asset_stats,
-        'result': result
+        'result': result,
+        'skipped_trades': result.get('skipped_trades', 0),
     }
 
 
