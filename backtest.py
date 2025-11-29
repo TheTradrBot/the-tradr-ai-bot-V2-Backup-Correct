@@ -15,13 +15,18 @@ from __future__ import annotations
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Tuple, Optional
 
+import csv
+import os
 from data import get_ohlcv
 from config import SIGNAL_MODE
 from strategy_core import (
     generate_signals,
+    generate_signals_mtf,
+    generate_htf_confluence_signals,
     get_default_params,
     Signal,
     StrategyParams,
+    HTFConfluenceParams,
     _atr,
     _find_pivots,
     _find_structure_sl,
@@ -138,143 +143,227 @@ def _build_date_list(candles: List[Dict]) -> List[Optional[date]]:
     return [_candle_to_date(c) for c in candles]
 
 
-def _maybe_exit_trade(
+def _maybe_exit_trade_laddered(
     trade: Dict,
     high: float,
     low: float,
     exit_date: date,
 ) -> Optional[Dict]:
     """
-    Check if trade hits TP or SL on a candle.
-    Conservative approach: if SL and any TP are both hit on same bar, assume SL hit first.
-    Trailing stop moves to breakeven after TP1 hit.
+    Check if trade hits TP or SL on a candle with laddered exit system.
+    
+    Exit strategy (position sizing):
+    - TP1: Take 50% profit at 1.5R
+    - TP2: Take 30% profit at 2.5R, move SL to TP1 level
+    - TP3: Take 20% (runner) at 4R, or trail with SL at TP2
+    
+    Conservative: if SL and TP are both hit on same bar, assume SL hit first
     """
     direction = trade["direction"]
     entry = trade["entry"]
-    sl = trade.get("trailing_sl", trade["sl"])
+    sl = trade["sl"]
     tp1 = trade["tp1"]
-    tp2 = trade["tp2"]
-    tp3 = trade["tp3"]
+    tp2 = trade.get("tp2")
+    tp3 = trade.get("tp3")
     risk = trade["risk"]
+    
     tp1_hit = trade.get("tp1_hit", False)
+    tp2_hit = trade.get("tp2_hit", False)
+    
+    if risk <= 0:
+        return None
 
     if direction == "bullish":
-        hit_tp3 = tp3 is not None and high >= tp3
-        hit_tp2 = tp2 is not None and high >= tp2
-        hit_tp1 = tp1 is not None and high >= tp1
-        hit_sl = low <= sl
-
-        if hit_sl:
-            if tp1_hit:
-                rr = (sl - entry) / risk
-                return {
-                    "entry_date": trade["entry_date"].isoformat(),
-                    "exit_date": exit_date.isoformat(),
-                    "direction": direction,
-                    "rr": max(rr, 0.0),
-                    "exit_reason": "TP1+Trail",
-                }
-            else:
-                return {
-                    "entry_date": trade["entry_date"].isoformat(),
-                    "exit_date": exit_date.isoformat(),
-                    "direction": direction,
-                    "rr": -1.0,
-                    "exit_reason": "SL",
-                }
-        
+        current_sl = sl
         if tp1_hit:
-            if hit_tp3:
-                rr = (tp3 - entry) / risk
-                return {
-                    "entry_date": trade["entry_date"].isoformat(),
-                    "exit_date": exit_date.isoformat(),
-                    "direction": direction,
-                    "rr": rr,
-                    "exit_reason": "TP3",
-                }
-            elif hit_tp2:
-                rr = (tp2 - entry) / risk
-                return {
-                    "entry_date": trade["entry_date"].isoformat(),
-                    "exit_date": exit_date.isoformat(),
-                    "direction": direction,
-                    "rr": rr,
-                    "exit_reason": "TP2",
-                }
-        elif hit_tp1 and not tp1_hit:
+            current_sl = tp1
+        if tp2_hit and tp2:
+            current_sl = tp2
+        
+        hit_sl = low <= current_sl
+        hit_tp1 = not tp1_hit and tp1 is not None and high >= tp1
+        hit_tp2 = tp1_hit and not tp2_hit and tp2 is not None and high >= tp2
+        hit_tp3 = tp2_hit and tp3 is not None and high >= tp3
+        
+        if hit_sl and (hit_tp1 or hit_tp2 or hit_tp3):
+            pnl = 0.0
+            if tp1_hit:
+                pnl += 0.5 * ((tp1 - entry) / risk)
+            if tp2_hit:
+                pnl += 0.3 * ((tp2 - entry) / risk)
+            remaining = 1.0 - (0.5 if tp1_hit else 0) - (0.3 if tp2_hit else 0)
+            pnl += remaining * ((current_sl - entry) / risk)
+            
+            return {
+                "entry_date": trade["entry_date"].isoformat(),
+                "exit_date": exit_date.isoformat(),
+                "direction": direction,
+                "entry": entry,
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "tp3": tp3,
+                "exit_price": current_sl,
+                "rr": pnl,
+                "exit_reason": "SL_RUNNER" if tp2_hit else ("SL_PARTIAL" if tp1_hit else "SL"),
+                "tp1_hit": tp1_hit,
+                "tp2_hit": tp2_hit,
+            }
+        
+        if hit_sl:
+            pnl = 0.0
+            remaining = 1.0
+            if tp1_hit:
+                pnl += 0.5 * ((tp1 - entry) / risk)
+                remaining -= 0.5
+            if tp2_hit:
+                pnl += 0.3 * ((tp2 - entry) / risk)
+                remaining -= 0.3
+            pnl += remaining * (-1.0)
+            
+            return {
+                "entry_date": trade["entry_date"].isoformat(),
+                "exit_date": exit_date.isoformat(),
+                "direction": direction,
+                "entry": entry,
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "tp3": tp3,
+                "exit_price": current_sl,
+                "rr": pnl,
+                "exit_reason": "SL_RUNNER" if tp2_hit else ("SL_PARTIAL" if tp1_hit else "SL"),
+                "tp1_hit": tp1_hit,
+                "tp2_hit": tp2_hit,
+            }
+        
+        if hit_tp3:
+            pnl = 0.5 * ((tp1 - entry) / risk) + 0.3 * ((tp2 - entry) / risk) + 0.2 * ((tp3 - entry) / risk)
+            return {
+                "entry_date": trade["entry_date"].isoformat(),
+                "exit_date": exit_date.isoformat(),
+                "direction": direction,
+                "entry": entry,
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "tp3": tp3,
+                "exit_price": tp3,
+                "rr": pnl,
+                "exit_reason": "TP3_FULL",
+                "tp1_hit": True,
+                "tp2_hit": True,
+            }
+        
+        if hit_tp2:
+            trade["tp2_hit"] = True
+            return None
+        
+        if hit_tp1:
             trade["tp1_hit"] = True
-            new_sl = entry
-            trade["trailing_sl"] = new_sl
-            if low <= new_sl:
-                return {
-                    "entry_date": trade["entry_date"].isoformat(),
-                    "exit_date": exit_date.isoformat(),
-                    "direction": direction,
-                    "rr": 0.0,
-                    "exit_reason": "TP1+Trail",
-                }
             return None
 
     else:
-        hit_tp3 = tp3 is not None and low <= tp3
-        hit_tp2 = tp2 is not None and low <= tp2
-        hit_tp1 = tp1 is not None and low <= tp1
-        hit_sl = high >= sl
-
-        if hit_sl:
-            if tp1_hit:
-                rr = (entry - sl) / risk
-                return {
-                    "entry_date": trade["entry_date"].isoformat(),
-                    "exit_date": exit_date.isoformat(),
-                    "direction": direction,
-                    "rr": max(rr, 0.0),
-                    "exit_reason": "TP1+Trail",
-                }
-            else:
-                return {
-                    "entry_date": trade["entry_date"].isoformat(),
-                    "exit_date": exit_date.isoformat(),
-                    "direction": direction,
-                    "rr": -1.0,
-                    "exit_reason": "SL",
-                }
-        
+        current_sl = sl
         if tp1_hit:
-            if hit_tp3:
-                rr = (entry - tp3) / risk
-                return {
-                    "entry_date": trade["entry_date"].isoformat(),
-                    "exit_date": exit_date.isoformat(),
-                    "direction": direction,
-                    "rr": rr,
-                    "exit_reason": "TP3",
-                }
-            elif hit_tp2:
-                rr = (entry - tp2) / risk
-                return {
-                    "entry_date": trade["entry_date"].isoformat(),
-                    "exit_date": exit_date.isoformat(),
-                    "direction": direction,
-                    "rr": rr,
-                    "exit_reason": "TP2",
-                }
-        elif hit_tp1 and not tp1_hit:
+            current_sl = tp1
+        if tp2_hit and tp2:
+            current_sl = tp2
+        
+        hit_sl = high >= current_sl
+        hit_tp1 = not tp1_hit and tp1 is not None and low <= tp1
+        hit_tp2 = tp1_hit and not tp2_hit and tp2 is not None and low <= tp2
+        hit_tp3 = tp2_hit and tp3 is not None and low <= tp3
+        
+        if hit_sl and (hit_tp1 or hit_tp2 or hit_tp3):
+            pnl = 0.0
+            if tp1_hit:
+                pnl += 0.5 * ((entry - tp1) / risk)
+            if tp2_hit:
+                pnl += 0.3 * ((entry - tp2) / risk)
+            remaining = 1.0 - (0.5 if tp1_hit else 0) - (0.3 if tp2_hit else 0)
+            pnl += remaining * ((entry - current_sl) / risk)
+            
+            return {
+                "entry_date": trade["entry_date"].isoformat(),
+                "exit_date": exit_date.isoformat(),
+                "direction": direction,
+                "entry": entry,
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "tp3": tp3,
+                "exit_price": current_sl,
+                "rr": pnl,
+                "exit_reason": "SL_RUNNER" if tp2_hit else ("SL_PARTIAL" if tp1_hit else "SL"),
+                "tp1_hit": tp1_hit,
+                "tp2_hit": tp2_hit,
+            }
+        
+        if hit_sl:
+            pnl = 0.0
+            remaining = 1.0
+            if tp1_hit:
+                pnl += 0.5 * ((entry - tp1) / risk)
+                remaining -= 0.5
+            if tp2_hit:
+                pnl += 0.3 * ((entry - tp2) / risk)
+                remaining -= 0.3
+            pnl += remaining * (-1.0)
+            
+            return {
+                "entry_date": trade["entry_date"].isoformat(),
+                "exit_date": exit_date.isoformat(),
+                "direction": direction,
+                "entry": entry,
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "tp3": tp3,
+                "exit_price": current_sl,
+                "rr": pnl,
+                "exit_reason": "SL_RUNNER" if tp2_hit else ("SL_PARTIAL" if tp1_hit else "SL"),
+                "tp1_hit": tp1_hit,
+                "tp2_hit": tp2_hit,
+            }
+        
+        if hit_tp3:
+            pnl = 0.5 * ((entry - tp1) / risk) + 0.3 * ((entry - tp2) / risk) + 0.2 * ((entry - tp3) / risk)
+            return {
+                "entry_date": trade["entry_date"].isoformat(),
+                "exit_date": exit_date.isoformat(),
+                "direction": direction,
+                "entry": entry,
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "tp3": tp3,
+                "exit_price": tp3,
+                "rr": pnl,
+                "exit_reason": "TP3_FULL",
+                "tp1_hit": True,
+                "tp2_hit": True,
+            }
+        
+        if hit_tp2:
+            trade["tp2_hit"] = True
+            return None
+        
+        if hit_tp1:
             trade["tp1_hit"] = True
-            new_sl = entry
-            trade["trailing_sl"] = new_sl
-            if high >= new_sl:
-                return {
-                    "entry_date": trade["entry_date"].isoformat(),
-                    "exit_date": exit_date.isoformat(),
-                    "direction": direction,
-                    "rr": 0.0,
-                    "exit_reason": "TP1+Trail",
-                }
             return None
 
     return None
+
+
+def _maybe_exit_trade(
+    trade: Dict,
+    high: float,
+    low: float,
+    exit_date: date,
+) -> Optional[Dict]:
+    """Simple exit - backward compatible wrapper."""
+    return _maybe_exit_trade_laddered(trade, high, low, exit_date)
 
 
 def _signal_to_bar_date(signal: Signal, candles: List[Dict]) -> Optional[date]:
@@ -429,15 +518,37 @@ def run_backtest(asset: str, period: str) -> Dict:
         }
 
     params = get_default_params(asset)
+    htf_params = HTFConfluenceParams()
     
-    signals = generate_signals(
-        candles=daily,
-        symbol=asset,
-        params=params,
-        monthly_candles=monthly if monthly else None,
-        weekly_candles=weekly if weekly else None,
-        h4_candles=h4 if h4 else None,
-    )
+    use_htf_confluence = True
+    
+    if use_htf_confluence and h4 and weekly and monthly:
+        signals = generate_htf_confluence_signals(
+            daily_candles=daily,
+            h4_candles=h4,
+            weekly_candles=weekly,
+            monthly_candles=monthly,
+            symbol=asset,
+            params=htf_params,
+        )
+    elif h4 and weekly and monthly:
+        signals = generate_signals_mtf(
+            daily_candles=daily,
+            h4_candles=h4,
+            weekly_candles=weekly,
+            monthly_candles=monthly,
+            symbol=asset,
+            params=params,
+        )
+    else:
+        signals = generate_signals(
+            candles=daily,
+            symbol=asset,
+            params=params,
+            monthly_candles=monthly if monthly else None,
+            weekly_candles=weekly if weekly else None,
+            h4_candles=h4 if h4 else None,
+        )
 
     signal_by_bar = {s.bar_index: s for s in signals if s.is_active or s.is_watching}
 
@@ -475,8 +586,19 @@ def run_backtest(asset: str, period: str) -> Dict:
         if should_skip_trading(d_i):
             holidays_skipped += 1
             continue
+        
+        if d_i.weekday() == 4:
+            continue
 
         signal = signal_by_bar.get(idx)
+        if signal is None:
+            for lookback in range(1, 4):
+                prev_idx = idx - lookback
+                if prev_idx >= 0 and prev_idx in signal_by_bar:
+                    prev_signal = signal_by_bar[prev_idx]
+                    if prev_signal.is_active or prev_signal.is_watching:
+                        signal = prev_signal
+                        break
         if signal is None:
             continue
         
@@ -511,6 +633,16 @@ def run_backtest(asset: str, period: str) -> Dict:
         if not is_valid_entry:
             price_validation_failed += 1
             entry = c["close"]
+            risk = abs(entry - sl)
+            if risk > 0:
+                if direction == "bullish":
+                    tp1 = entry + risk * params.atr_tp1_multiplier
+                    tp2 = entry + risk * params.atr_tp2_multiplier
+                    tp3 = entry + risk * params.atr_tp3_multiplier
+                else:
+                    tp1 = entry - risk * params.atr_tp1_multiplier
+                    tp2 = entry - risk * params.atr_tp2_multiplier
+                    tp3 = entry - risk * params.atr_tp3_multiplier
 
         risk = abs(entry - sl)
         if risk <= 0:
@@ -564,12 +696,12 @@ def run_backtest(asset: str, period: str) -> Dict:
     
     max_drawdown_pct = (max_drawdown / ACCOUNT_SIZE) * 100 if ACCOUNT_SIZE > 0 else 0.0
 
-    tp1_trail_hits = sum(1 for t in trades if t.get("exit_reason") == "TP1+Trail")
+    tp1_hits = sum(1 for t in trades if t.get("exit_reason") in ("TP1", "TP1+Trail"))
     tp2_hits = sum(1 for t in trades if t.get("exit_reason") == "TP2")
     tp3_hits = sum(1 for t in trades if t.get("exit_reason") == "TP3")
     sl_hits = sum(1 for t in trades if t.get("exit_reason") == "SL")
     
-    wins = tp1_trail_hits + tp2_hits + tp3_hits
+    wins = tp1_hits + tp2_hits + tp3_hits
 
     notes_text = (
         f"Backtest Summary - {asset} ({period_label}, 100K 5%ers model)\n"
@@ -578,7 +710,7 @@ def run_backtest(asset: str, period: str) -> Dict:
         f"Total profit: +${total_profit_usd:,.0f} (+{net_return_pct:.1f}%)\n"
         f"Max drawdown: -{max_drawdown_pct:.1f}%\n"
         f"Expectancy: {avg_rr:+.2f}R / trade\n"
-        f"TP1+Trail ({tp1_trail_hits}), TP2 ({tp2_hits}), TP3 ({tp3_hits}), SL ({sl_hits})"
+        f"TP1 ({tp1_hits}), TP2 ({tp2_hits}), TP3 ({tp3_hits}), SL ({sl_hits})"
     )
     
     if holidays_skipped > 0:
@@ -586,7 +718,7 @@ def run_backtest(asset: str, period: str) -> Dict:
     if price_validation_failed > 0:
         notes_text += f"\nPrice validations adjusted: {price_validation_failed}"
 
-    return {
+    result = {
         "asset": asset,
         "period": period_label,
         "total_trades": total_trades,
@@ -595,7 +727,7 @@ def run_backtest(asset: str, period: str) -> Dict:
         "total_profit_usd": total_profit_usd,
         "max_drawdown_pct": max_drawdown_pct,
         "avg_rr": avg_rr,
-        "tp1_trail_hits": tp1_trail_hits,
+        "tp1_trail_hits": tp1_hits,
         "tp2_hits": tp2_hits,
         "tp3_hits": tp3_hits,
         "sl_hits": sl_hits,
@@ -606,3 +738,113 @@ def run_backtest(asset: str, period: str) -> Dict:
         "holidays_skipped": holidays_skipped,
         "price_validation_adjusted": price_validation_failed,
     }
+    
+    return result
+
+
+def export_trades_to_csv(result: Dict, output_dir: str = "backtest_results") -> str:
+    """
+    Export backtest trades to CSV file with exact trade details.
+    
+    Args:
+        result: Backtest result dictionary from run_backtest()
+        output_dir: Directory to save CSV files
+        
+    Returns:
+        Path to the created CSV file
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    asset = result.get("asset", "UNKNOWN")
+    period = result.get("period", "").replace(" ", "_").replace("-", "_")
+    filename = f"{asset}_{period}_trades.csv"
+    filepath = os.path.join(output_dir, filename)
+    
+    trades = result.get("trades", [])
+    
+    if not trades:
+        with open(filepath, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["No trades to export"])
+        return filepath
+    
+    fieldnames = [
+        "entry_date", "exit_date", "direction", "entry", "sl", "tp1", "tp2", "tp3",
+        "exit_price", "rr", "exit_reason", "tp1_hit", "tp2_hit"
+    ]
+    
+    with open(filepath, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+        writer.writeheader()
+        
+        for trade in trades:
+            row = {k: trade.get(k, "") for k in fieldnames}
+            for price_field in ["entry", "sl", "tp1", "tp2", "tp3", "exit_price"]:
+                if row[price_field] and isinstance(row[price_field], float):
+                    row[price_field] = f"{row[price_field]:.5f}"
+            if row["rr"] and isinstance(row["rr"], float):
+                row["rr"] = f"{row['rr']:.2f}"
+            writer.writerow(row)
+    
+    with open(filepath, 'a') as f:
+        f.write(f"\n# Summary:\n")
+        f.write(f"# Asset: {asset}\n")
+        f.write(f"# Period: {result.get('period', '')}\n")
+        f.write(f"# Total Trades: {result.get('total_trades', 0)}\n")
+        f.write(f"# Win Rate: {result.get('win_rate', 0):.1f}%\n")
+        f.write(f"# Net Return: {result.get('net_return_pct', 0):.1f}%\n")
+        f.write(f"# Avg R:R: {result.get('avg_rr', 0):.2f}\n")
+    
+    return filepath
+
+
+def run_yearly_backtest(asset: str, year: int) -> Dict:
+    """
+    Run backtest for a specific asset and year.
+    
+    Args:
+        asset: Trading asset symbol
+        year: Year to backtest
+        
+    Returns:
+        Backtest result dictionary
+    """
+    period = f"Jan {year} - Dec {year}"
+    return run_backtest(asset, period)
+
+
+def run_all_yearly_backtests(assets: List[str], years: List[int], export_csv: bool = True) -> Dict:
+    """
+    Run backtests for all assets across all years and optionally export to CSV.
+    
+    Args:
+        assets: List of trading asset symbols
+        years: List of years to backtest
+        export_csv: Whether to export trades to CSV
+        
+    Returns:
+        Dictionary with all results organized by year and asset
+    """
+    all_results = {}
+    
+    for year in years:
+        all_results[year] = {}
+        
+        for asset in assets:
+            print(f"Running backtest: {asset} {year}...")
+            result = run_yearly_backtest(asset, year)
+            all_results[year][asset] = result
+            
+            if export_csv and result.get("total_trades", 0) > 0:
+                csv_path = export_trades_to_csv(result)
+                result["csv_path"] = csv_path
+                print(f"  -> Exported to {csv_path}")
+            
+            trades = result.get("total_trades", 0)
+            wr = result.get("win_rate", 0)
+            ret = result.get("net_return_pct", 0)
+            
+            status = "PASS" if trades >= 50 and wr >= 70 and ret >= 50 else "FAIL"
+            print(f"  -> {trades} trades, {wr:.1f}% WR, {ret:.1f}% return [{status}]")
+    
+    return all_results

@@ -1,0 +1,10 @@
+entry_date,exit_date,direction,entry,sl,tp1,tp2,tp3,exit_price,rr,exit_reason,tp1_hit,tp2_hit
+2024-03-04,2024-04-03,bullish,2114.36500,2041.07446,2224.30081,2297.59134,2407.52715,2297.59134,1.30,SL_RUNNER,True,True
+
+# Summary:
+# Asset: XAU_USD
+# Period: 2024-01-01 - 2024-11-28
+# Total Trades: 1
+# Win Rate: 100.0%
+# Net Return: 1.3%
+# Avg R:R: 1.30
