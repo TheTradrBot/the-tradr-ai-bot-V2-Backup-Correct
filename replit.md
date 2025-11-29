@@ -13,28 +13,46 @@ Blueprint Trader AI is an automated trading signal bot designed to identify high
 - **Daily Drawdown**: 5% ($500 max loss per day)
 - **Minimum Profitable Days**: 3 days required per step
 - **Risk Per Trade**: 2.5% ($250 per trade)
-- **Maximum Trades Per Day**: 5
+- **Maximum Trades Per Day**: 12
 
-### CURRENT OPTIMIZED Strategy (Active)
-- **R:R Ratio**: 2.0:1 (balanced profit capture)
-- **Stop Loss**: 0.6x ATR (tighter stops)
-- **Risk per Trade**: 2.5% ($250 per trade)
-- **Trend Filter**: EMA(50)
-- **Entry Filters**: RSI 60/40 + 1 confluence factor (OB/FVG/SWEEP)
+### CURRENT OPTIMIZED Strategy (Active) - Regime-Aware Multi-Strategy
+The strategy uses market regime detection to apply different trading approaches:
 
-### Backtest Results (15 Months, Including Fees)
-| Period | Avg Monthly | Pass Rate | Best Month | Notes |
-|--------|-------------|-----------|------------|-------|
-| 2024-2025 | +$500 | 20% (3/15) | +$3,153 (Feb 2025) | 10 assets traded |
+**Regime Detection:**
+- **TRENDING**: Price range >3% with EMA divergence >0.5%
+- **RANGING**: Price range <1.5%
+- **VOLATILE**: All other conditions
+
+**Strategy per Regime:**
+| Regime | Entry Logic | R:R | ATR Mult | Notes |
+|--------|-------------|-----|----------|-------|
+| TRENDING | EMA crossover + momentum | 3.0:1 | 0.5x | Ride trends |
+| RANGING | RSI extremes (<30/>70) | 1.5:1 | 0.8x | Mean reversion |
+| VOLATILE | Breakout candles (>60% body) | 2.5:1 | 0.6x | Momentum plays |
+| FALLBACK | Extreme RSI/EMA bounce | 2.0:1 | 0.7x | Catch opportunities |
+
+**SMC Confluence Filters:**
+- Order Blocks (OB), Fair Value Gaps (FVG), Liquidity Sweeps
+
+### Latest Backtest Results (Sep 2024 - Oct 2025)
+| Period | Total Net | Avg Monthly | Pass Rate | Best Month | $3k+ Months |
+|--------|-----------|-------------|-----------|------------|-------------|
+| 14 Months | **+$13,798** | **+$986** | 21% (3/14) | +$8,067 (Oct 2025) | 3/14 (21%) |
 
 ### Monthly Breakdown
 | Month | Trades | Win Rate | Net P/L | Result |
 |-------|--------|----------|---------|--------|
-| Feb 2025 | 20 | 55.0% | +$3,153 | **PASSED (8+2d)** |
-| Oct 2025 | 10 | 70.0% | +$2,697 | **PASSED (6+2d)** |
-| Jul 2025 | 23 | 47.8% | +$1,916 | **PASSED (13+1d)** |
-| Sep 2024 | 10 | 60.0% | +$1,760 | Step 1 only |
-| Dec 2024 | 18 | 44.4% | +$910 | Step 1 only |
+| Oct 2025 | 35 | 54.3% | +$8,067 | **PASSED** |
+| Nov 2024 | 66 | 39.4% | +$6,168 | **PASSED** |
+| Jan 2025 | 29 | 48.3% | +$4,605 | **PASSED** |
+| May 2025 | 37 | 37.8% | +$1,847 | Step 1 only |
+| Sep 2025 | 38 | 34.2% | +$112 | Step 1 only |
+
+### Key Findings
+- **Trade Volume Matters**: Months with 29+ trades and 33%+ win rate tend to be profitable
+- **Low Trade Months**: Months with <10 trades consistently lose (~-$800)
+- **Best Configuration**: 2.5% risk, 12 trades/day max, multi-strategy approach
+- **Mathematical Reality**: $3k+ profit EVERY month is not achievable due to market variance
 
 ### Trading Fees (Per Asset)
 | Asset Type | Spread | Commission | Avg Fee/Trade |
