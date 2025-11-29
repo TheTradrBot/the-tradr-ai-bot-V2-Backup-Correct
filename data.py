@@ -157,6 +157,60 @@ def get_ohlcv_range(
     return candles
 
 
+def get_dukascopy_4h(
+    symbol: str,
+    start_year: int = 2003,
+    end_year: int = None
+) -> List[Dict[str, Any]]:
+    """
+    Fetch 4-hour candles from Dukascopy for long-term monthly/weekly S/R analysis.
+    
+    Args:
+        symbol: Forex pair (e.g., 'eurusd' for EUR_USD)
+        start_year: Start year (default 2003)
+        end_year: End year (default current year)
+    
+    Returns:
+        List of 4H candles with keys: time, open, high, low, close, volume
+    """
+    try:
+        from dukascopy.broker import API
+        from datetime import datetime, timedelta
+        import time
+        
+        if end_year is None:
+            end_year = datetime.now().year
+        
+        api = API(endpoint="https://www.dukascopy.com/datafeed")
+        
+        symbol_lower = symbol.lower().replace('_', '')
+        
+        start_date = datetime(start_year, 1, 1)
+        end_date = datetime(end_year, 12, 31)
+        
+        print(f"[dukascopy] Fetching {symbol} 4H from {start_year} to {end_year}...")
+        
+        candles_data = api.get_candles(symbol_lower, 4 * 60 * 60, start_date, end_date)
+        
+        candles = []
+        for ts, o, h, l, c, vol in candles_data:
+            candles.append({
+                'time': ts,
+                'open': float(o),
+                'high': float(h),
+                'low': float(l),
+                'close': float(c),
+                'volume': float(vol) if vol else 0
+            })
+        
+        print(f"[dukascopy] Got {len(candles)} 4H candles")
+        return candles
+        
+    except Exception as e:
+        print(f"[dukascopy] Error fetching {symbol}: {e}")
+        return []
+
+
 def get_cache_stats() -> Dict[str, Any]:
     """Get statistics about the data cache."""
     return get_cache().get_stats()

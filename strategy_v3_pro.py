@@ -202,6 +202,57 @@ def find_weekly_sr_levels(weekly_candles: List[Dict], lookback: int = 12) -> Lis
     return sr_levels
 
 
+def extract_monthly_weekly_sr_from_4h(candles_4h: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+    """
+    Extract Monthly and Weekly S/R levels from 4-hour candle data.
+    Groups 4H candles into monthly and weekly OHLC bars.
+    
+    Returns:
+        (monthly_sr_levels, weekly_sr_levels)
+    """
+    if len(candles_4h) < 100:
+        return [], []
+    
+    from datetime import datetime
+    
+    monthly_bars = {}
+    weekly_bars = {}
+    
+    for candle in candles_4h:
+        time_val = candle['time']
+        if isinstance(time_val, str):
+            try:
+                time_val = datetime.fromisoformat(time_val.replace('Z', '+00:00'))
+            except:
+                continue
+        elif not isinstance(time_val, datetime):
+            continue
+        
+        month_key = f"{time_val.year}-{time_val.month:02d}"
+        week_key = f"{time_val.year}-W{time_val.isocalendar()[1]:02d}"
+        
+        for key_dict, key in [(monthly_bars, month_key), (weekly_bars, week_key)]:
+            if key not in key_dict:
+                key_dict[key] = {
+                    'open': candle['open'],
+                    'high': candle['high'],
+                    'low': candle['low'],
+                    'close': candle['close']
+                }
+            else:
+                key_dict[key]['high'] = max(key_dict[key]['high'], candle['high'])
+                key_dict[key]['low'] = min(key_dict[key]['low'], candle['low'])
+                key_dict[key]['close'] = candle['close']
+    
+    monthly_candles = [{'time': k, **v} for k, v in sorted(monthly_bars.items())]
+    weekly_candles = [{'time': k, **v} for k, v in sorted(weekly_bars.items())]
+    
+    monthly_sr = find_weekly_sr_levels(monthly_candles, lookback=min(12, len(monthly_candles)))
+    weekly_sr = find_weekly_sr_levels(weekly_candles, lookback=min(20, len(weekly_candles)))
+    
+    return monthly_sr, weekly_sr
+
+
 def price_near_weekly_sr(price: float, sr_levels: List[Dict], atr: float, buffer_mult: float = 0.5) -> Tuple[bool, str]:
     """
     Check if price is near a weekly S/R level.
