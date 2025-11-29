@@ -110,6 +110,23 @@ def _simulate_trade(
                 remaining_position -= 0.5
                 tp1_hit = True
                 current_sl = entry
+                if low <= current_sl:
+                    return TradeResult(
+                        symbol=signal.symbol,
+                        direction=direction,
+                        entry_bar=signal.bar_index,
+                        exit_bar=i,
+                        entry_price=entry,
+                        exit_price=current_sl,
+                        stop_loss=sl,
+                        tp1=tp1,
+                        tp2=tp2,
+                        tp3=tp3,
+                        exit_type="partial_sl",
+                        pnl_r=weighted_pnl,
+                        module=signal.module,
+                        timestamp=signal.timestamp,
+                    )
             
             if tp1_hit and not tp2_hit and high >= tp2:
                 pnl_tp2 = (tp2 - entry) / risk * 0.3
@@ -117,6 +134,23 @@ def _simulate_trade(
                 remaining_position -= 0.3
                 tp2_hit = True
                 current_sl = tp1
+                if low <= current_sl:
+                    return TradeResult(
+                        symbol=signal.symbol,
+                        direction=direction,
+                        entry_bar=signal.bar_index,
+                        exit_bar=i,
+                        entry_price=entry,
+                        exit_price=current_sl,
+                        stop_loss=sl,
+                        tp1=tp1,
+                        tp2=tp2,
+                        tp3=tp3,
+                        exit_type="runner_sl",
+                        pnl_r=weighted_pnl,
+                        module=signal.module,
+                        timestamp=signal.timestamp,
+                    )
             
             if tp2_hit and high >= tp3:
                 pnl_tp3 = (tp3 - entry) / risk * 0.2
@@ -168,6 +202,23 @@ def _simulate_trade(
                 remaining_position -= 0.5
                 tp1_hit = True
                 current_sl = entry
+                if high >= current_sl:
+                    return TradeResult(
+                        symbol=signal.symbol,
+                        direction=direction,
+                        entry_bar=signal.bar_index,
+                        exit_bar=i,
+                        entry_price=entry,
+                        exit_price=current_sl,
+                        stop_loss=sl,
+                        tp1=tp1,
+                        tp2=tp2,
+                        tp3=tp3,
+                        exit_type="partial_sl",
+                        pnl_r=weighted_pnl,
+                        module=signal.module,
+                        timestamp=signal.timestamp,
+                    )
             
             if tp1_hit and not tp2_hit and low <= tp2:
                 pnl_tp2 = (entry - tp2) / risk * 0.3
@@ -175,6 +226,23 @@ def _simulate_trade(
                 remaining_position -= 0.3
                 tp2_hit = True
                 current_sl = tp1
+                if high >= current_sl:
+                    return TradeResult(
+                        symbol=signal.symbol,
+                        direction=direction,
+                        entry_bar=signal.bar_index,
+                        exit_bar=i,
+                        entry_price=entry,
+                        exit_price=current_sl,
+                        stop_loss=sl,
+                        tp1=tp1,
+                        tp2=tp2,
+                        tp3=tp3,
+                        exit_type="runner_sl",
+                        pnl_r=weighted_pnl,
+                        module=signal.module,
+                        timestamp=signal.timestamp,
+                    )
             
             if tp2_hit and low <= tp3:
                 pnl_tp3 = (entry - tp3) / risk * 0.2

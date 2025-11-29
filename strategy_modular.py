@@ -189,10 +189,13 @@ def generate_reversal_signals(
     Generate reversal signals at HTF S/R levels.
     
     Strategy:
-    1. Find Monthly/Weekly swing S/R levels
+    1. Find Monthly/Weekly swing S/R levels (using only data up to current bar)
     2. Wait for price to approach these levels
     3. Look for reversal confirmation (rejection candle)
     4. Enter with SL beyond level, TPs at R:R targets
+    
+    FIX: Uses rolling window to avoid look-ahead bias - S/R levels are derived
+    only from HTF candles that would have been available at each decision bar.
     """
     if params is None:
         params = ReversalParams()
@@ -202,21 +205,39 @@ def generate_reversal_signals(
     if not daily_candles or len(daily_candles) < 50:
         return signals
     
-    monthly_swing_highs, monthly_swing_lows = _find_swing_levels(monthly_candles or [], lookback=2)
-    weekly_swing_highs, weekly_swing_lows = _find_swing_levels(weekly_candles or [], lookback=2)
-    
-    all_resistance = monthly_swing_highs + weekly_swing_highs
-    all_support = monthly_swing_lows + weekly_swing_lows
-    
-    resistance_clusters = _cluster_levels(all_resistance, params.sr_tolerance_pct)
-    support_clusters = _cluster_levels(all_support, params.sr_tolerance_pct)
-    
-    resistance_levels = [level for level, touches in resistance_clusters if touches >= params.min_touches][:10]
-    support_levels = [level for level, touches in support_clusters if touches >= params.min_touches][:10]
+    total_daily_bars = len(daily_candles)
+    total_weekly_bars = len(weekly_candles) if weekly_candles else 0
+    total_monthly_bars = len(monthly_candles) if monthly_candles else 0
     
     cooldown_until = 0
     
+    last_sr_update_bar = -1
+    sr_update_interval = 20
+    resistance_levels = []
+    support_levels = []
+    
     for i in range(params.lookback_bars, len(daily_candles)):
+        if i - last_sr_update_bar >= sr_update_interval or last_sr_update_bar < 0:
+            progress_fraction = i / total_daily_bars
+            weekly_end_idx = int(progress_fraction * total_weekly_bars) if total_weekly_bars > 0 else 0
+            monthly_end_idx = int(progress_fraction * total_monthly_bars) if total_monthly_bars > 0 else 0
+            
+            weekly_slice = weekly_candles[:weekly_end_idx] if weekly_candles and weekly_end_idx > 0 else []
+            monthly_slice = monthly_candles[:monthly_end_idx] if monthly_candles and monthly_end_idx > 0 else []
+            
+            monthly_swing_highs, monthly_swing_lows = _find_swing_levels(monthly_slice, lookback=2)
+            weekly_swing_highs, weekly_swing_lows = _find_swing_levels(weekly_slice, lookback=2)
+            
+            all_resistance = monthly_swing_highs + weekly_swing_highs
+            all_support = monthly_swing_lows + weekly_swing_lows
+            
+            resistance_clusters = _cluster_levels(all_resistance, params.sr_tolerance_pct)
+            support_clusters = _cluster_levels(all_support, params.sr_tolerance_pct)
+            
+            resistance_levels = [level for level, touches in resistance_clusters if touches >= params.min_touches][:10]
+            support_levels = [level for level, touches in support_clusters if touches >= params.min_touches][:10]
+            
+            last_sr_update_bar = i
         if i <= cooldown_until:
             continue
         
@@ -348,16 +369,22 @@ def generate_trend_signals(
     
     cooldown_until = 0
     
-    for i in range(params.ema_slow + 10, len(daily_candles)):
+    min_bars_required = max(params.ema_fast, params.ema_slow) + params.trend_lookback
+    
+    for i in range(min_bars_required, len(daily_candles)):
         if i <= cooldown_until:
             continue
         
-        ema_idx = i - params.ema_slow
-        if ema_idx < 0 or ema_idx >= len(ema_fast) or ema_idx >= len(ema_slow):
+        ema_fast_idx = i - params.ema_fast
+        ema_slow_idx = i - params.ema_slow
+        
+        if ema_fast_idx < 0 or ema_fast_idx >= len(ema_fast):
+            continue
+        if ema_slow_idx < 0 or ema_slow_idx >= len(ema_slow):
             continue
         
-        ema_f = ema_fast[ema_idx]
-        ema_s = ema_slow[ema_idx]
+        ema_f = ema_fast[ema_fast_idx]
+        ema_s = ema_slow[ema_slow_idx]
         
         current = daily_candles[i]
         prev = daily_candles[i-1]
