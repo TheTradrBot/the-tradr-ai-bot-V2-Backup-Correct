@@ -50,8 +50,8 @@ from position_sizing import calculate_position_size_5ers
 from config import ACCOUNT_SIZE, RISK_PER_TRADE_PCT
 
 from data import get_ohlcv, get_cache_stats, clear_cache, get_current_prices
-from challenge_5ers import run_challenge_backtest, format_challenge_result, export_challenge_trades_csv
-from strategy_highwin import run_yearly_backtest
+from challenge_5ers import run_challenge_backtest, run_backtest, format_challenge_result_for_discord
+from datetime import timedelta
 
 
 ACTIVE_TRADES: dict[str, ScanResult] = {}
@@ -186,9 +186,7 @@ async def check_trade_updates(updates_channel: discord.abc.Messageable) -> None:
                 embeds_to_send.append(embed)
 
         tp_levels = [
-            ("TP1", "tp1", trade.tp1, 1),
-            ("TP2", "tp2", trade.tp2, 2),
-            ("TP3", "tp3", trade.tp3, 3),
+            ("TP1", "tp1", trade.take_profit, 1),
         ]
 
         if not progress["sl"]:
@@ -248,7 +246,7 @@ async def check_trade_updates(updates_channel: discord.abc.Messageable) -> None:
                 total_rr = sum(
                     ((level - entry) / risk if direction == "bullish" else (entry - level) / risk)
                     for _, _, level, _ in tp_levels if level is not None
-                ) / 3
+                )
                 
                 entry_dt = TRADE_ENTRY_DATES.get(key)
                 embed = create_trade_closed_embed(
@@ -544,7 +542,7 @@ async def live(interaction: discord.Interaction):
         await interaction.followup.send(f"Error fetching live prices: {str(e)}")
 
 
-@bot.tree.command(name="backtest", description='Backtest the strategy. Example: /backtest EUR_USD 2024')
+@bot.tree.command(name="backtest", description='Backtest the V3 strategy. Example: /backtest EUR_USD 2024')
 @app_commands.describe(
     asset="The asset to backtest (e.g., EUR_USD, XAU_USD)",
     year="The year to backtest (e.g., 2024)"
@@ -553,26 +551,36 @@ async def backtest_cmd(interaction: discord.Interaction, asset: str, year: int):
     await interaction.response.defer()
     
     try:
+        from datetime import datetime
+        
         asset_clean = asset.upper().replace("/", "_")
-        result = run_yearly_backtest(asset_clean, year)
+        start_date = datetime(year, 1, 1)
+        end_date = datetime(year, 12, 31)
+        
+        result = await asyncio.to_thread(run_backtest, asset_clean, start_date, end_date)
         
         if 'error' in result:
             await interaction.followup.send(f"Error: {result['error']}")
             return
         
+        stats = result.get('stats', {})
+        
         msg = (
             f"**Backtest Results - {asset_clean} ({year})**\n\n"
-            f"Total Trades: {result.get('total_trades', 0)}\n"
-            f"Win Rate: {result.get('win_rate', 0):.1f}%\n"
-            f"Gross P/L: ${result.get('gross_pnl', 0):,.0f}\n"
-            f"Net P/L: ${result.get('net_pnl', 0):,.0f}\n"
-            f"Return: {result.get('return_pct', 0):+.1f}%\n\n"
-            f"Strategy: BB+RSI Mean Reversion (4R Target)"
+            f"Total Trades: {stats.get('total_trades', 0)}\n"
+            f"Win Rate: {stats.get('win_rate', 0):.1f}%\n"
+            f"Winners: {stats.get('winners', 0)} | Losers: {stats.get('losers', 0)}\n"
+            f"Total P/L: ${stats.get('total_pnl', 0):,.0f}\n"
+            f"Avg R/Trade: {stats.get('avg_r', 0):+.2f}\n"
+            f"Max Drawdown: ${stats.get('max_drawdown', 0):,.0f}\n\n"
+            f"Strategy: V3 HTF S/R + BOS + Structural TPs"
         )
         
         await interaction.followup.send(msg)
     except Exception as e:
         print(f"[/backtest] Error backtesting {asset}: {e}")
+        import traceback
+        traceback.print_exc()
         await interaction.followup.send(f"Error running backtest for **{asset}**: {str(e)}")
 
 
@@ -705,10 +713,11 @@ async def debug_cmd(interaction: discord.Interaction):
 
 @bot.tree.command(name="pass", description="Check if 5%ers challenge would pass for a given month.")
 @app_commands.describe(
+    asset="The asset to test (e.g., EUR_USD, XAU_USD)",
     month="Month (1-12)",
     year="Year (e.g., 2023, 2024)"
 )
-async def pass_challenge(interaction: discord.Interaction, month: int, year: int):
+async def pass_challenge(interaction: discord.Interaction, asset: str, month: int, year: int):
     """Run 5%ers 10K challenge backtest for a specific month."""
     await interaction.response.defer()
     
@@ -721,49 +730,48 @@ async def pass_challenge(interaction: discord.Interaction, month: int, year: int
         return
     
     try:
-        result = await asyncio.to_thread(run_challenge_backtest, month, year)
+        asset_clean = asset.upper().replace("/", "_")
+        result = await asyncio.to_thread(run_challenge_backtest, asset_clean, year, month)
         
-        embed = format_challenge_result(result)
-        await interaction.followup.send(embed=embed)
+        if 'error' in result:
+            await interaction.followup.send(f"Error: {result['error']}")
+            return
         
-        if result['trades']:
-            filename = export_challenge_trades_csv(result)
-            
-            summary = f"\n**5%ERS 10K CHALLENGE - {datetime(year, month, 1).strftime('%B %Y')}**\n"
-            summary += "=" * 50 + "\n"
-            
-            if result['passed_step2']:
-                summary += f"**PASSED BOTH STEPS!**\n"
-                summary += f"Step 1: Passed in {result['step1_days']} days\n"
-                summary += f"Step 2: Passed in {result['step2_days']} days\n"
-                summary += f"Total: {result['step1_days'] + result['step2_days']} days\n"
-            elif result['passed_step1']:
-                summary += f"**PASSED STEP 1 ONLY**\n"
-                summary += f"Step 1: Passed in {result['step1_days']} days\n"
-            elif result['failed']:
-                summary += f"**FAILED: {result['fail_reason']}**\n"
-            else:
-                summary += f"**IN PROGRESS**\n"
-            
-            summary += f"\nTotal Trades: {result['total_trades']}\n"
-            summary += f"Win Rate: {result['win_rate']:.1f}%\n"
-            summary += f"Profitable Days: {result['profitable_days']}\n"
-            summary += f"Final Balance: ${result['final_balance']:,.2f}\n"
-            
-            pnl_str = f"+${result['total_pnl']:,.2f}" if result['total_pnl'] >= 0 else f"-${abs(result['total_pnl']):,.2f}"
-            summary += f"Total P/L: {pnl_str} ({result['return_pct']:+.1f}%)\n"
-            
-            if result['trades']:
-                summary += f"\n**Sample Trades (showing 10):**\n```"
-                for t in result['trades'][:10]:
-                    pnl = f"+${t['pnl']:.0f}" if t['pnl'] > 0 else f"-${abs(t['pnl']):.0f}"
-                    summary += f"{t['symbol']:<12} {t['direction']:<5} {t['lot_size']:.2f}L | {t['result']} {pnl:>8} | Bal: ${t['balance']:,.0f}\n"
-                summary += "```"
-            
-            await interaction.followup.send(summary)
-            await interaction.followup.send(f"Full trades exported to: `{filename}`")
+        challenge = result.get('challenge', {})
+        backtest = result.get('backtest', {})
+        
+        passed = challenge.get('passed', False)
+        step1 = challenge.get('step1_passed', False)
+        step2 = challenge.get('step2_passed', False)
+        blown = challenge.get('blown', False)
+        
+        month_name = datetime(year, month, 1).strftime('%B %Y')
+        
+        summary = f"**5%ERS 10K CHALLENGE - {asset_clean} - {month_name}**\n"
+        summary += "=" * 50 + "\n\n"
+        
+        if passed:
+            summary += "**STATUS: PASSED BOTH STEPS!**\n"
+        elif step1 and not step2:
+            summary += "**STATUS: PASSED STEP 1 ONLY**\n"
+        elif blown:
+            summary += f"**STATUS: BLOWN** - {challenge.get('blown_reason', 'Unknown')}\n"
+        else:
+            summary += "**STATUS: INCOMPLETE**\n"
+        
+        summary += f"\n**Results:**\n"
+        summary += f"Final Balance: ${challenge.get('final_balance', 10000):,.0f}\n"
+        summary += f"Total P/L: ${challenge.get('total_pnl', 0):+,.0f}\n"
+        summary += f"Total Trades: {challenge.get('total_trades', 0)}\n"
+        summary += f"Win Rate: {challenge.get('win_rate', 0):.1f}%\n"
+        summary += f"Profitable Days: {challenge.get('profitable_days', 0)}\n"
+        summary += f"\nStrategy: V3 HTF S/R + BOS + Structural TPs"
+        
+        await interaction.followup.send(summary)
             
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         await interaction.followup.send(f"Error running challenge backtest: {str(e)}")
 
 
@@ -847,12 +855,12 @@ async def autoscan_loop():
                 timeframe="H4",
                 entry=trade.entry,
                 stop_loss=trade.stop_loss,
-                tp1=trade.tp1,
-                tp2=trade.tp2,
-                tp3=trade.tp3,
+                tp1=trade.take_profit,
+                tp2=None,
+                tp3=None,
                 confluence_score=trade.confluence_score,
                 confluence_items=confluence_items,
-                description=f"High-confluence setup with {trade.confluence_score}/7 factors aligned.",
+                description=f"V3 Strategy: HTF S/R + BOS | R:R = {trade.r_multiple:.1f}",
                 entry_datetime=entry_time,
             )
             

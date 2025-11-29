@@ -402,24 +402,22 @@ def create_backtest_embed(
 
 
 def build_confluence_list(scan_result) -> List[str]:
-    """Build confluence list from scan result for embed."""
+    """Build confluence list from V3 scan result for embed."""
     items = []
     
-    if scan_result.htf_bias and ("alignment" in scan_result.htf_bias.lower() or "reversal" in scan_result.htf_bias.lower()):
-        items.append(f"HTF: {scan_result.htf_bias[:50]}")
+    if hasattr(scan_result, 'htf_zone_low') and scan_result.htf_zone_low > 0:
+        items.append(f"HTF Zone: {scan_result.htf_zone_low:.5f} - {scan_result.htf_zone_high:.5f}")
     
-    if scan_result.location_note and "score:" in scan_result.location_note:
-        items.append(f"S/R: {scan_result.location_note[:50]}")
+    if hasattr(scan_result, 'bos_level') and scan_result.bos_level > 0:
+        items.append(f"BOS: {scan_result.bos_level:.5f}")
     
-    if scan_result.fib_note and "retracement" in scan_result.fib_note.lower():
-        items.append(f"Fib: {scan_result.fib_note[:50]}")
+    if hasattr(scan_result, 'r_multiple') and scan_result.r_multiple > 0:
+        items.append(f"R:R = {scan_result.r_multiple:.1f}")
     
-    if scan_result.liquidity_note:
-        liq = scan_result.liquidity_note.lower()
-        if "sweep" in liq or "equal" in liq:
-            items.append(f"Liquidity: {scan_result.liquidity_note[:50]}")
+    if hasattr(scan_result, 'reasoning') and scan_result.reasoning:
+        items.append(f"Analysis: {scan_result.reasoning[:80]}")
     
-    if scan_result.structure_note:
-        items.append(f"Structure: {scan_result.structure_note[:50]}")
+    if hasattr(scan_result, 'confluence_score'):
+        items.append(f"Confluence: {scan_result.confluence_score}/5")
     
     return items[:5]

@@ -1,112 +1,97 @@
 """
-Strategy module - Uses the 5%ers Challenge-validated strategy
-Bollinger Band + RSI(2) Mean Reversion with 4R targets
-"""
-from __future__ import annotations
+Strategy wrapper for Discord bot - uses V3 strategy.
 
-import datetime as dt
+This file provides the interface between the Discord bot and strategy_v3.py.
+All scanning and signal generation goes through strategy_v3.
+
+V3 Strategy: HTF S/R + Break of Structure + Structural TPs
+NO RSI, NO SMC, NO Fibonacci TPs
+"""
+
 from dataclasses import dataclass
-from typing import Optional, List, Dict
+from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 from data import get_ohlcv
 from config import (
-    FOREX_PAIRS,
-    METALS,
-    INDICES,
-    ENERGIES,
-    CRYPTO_ASSETS,
+    FOREX_PAIRS, METALS, INDICES, ENERGIES, CRYPTO_ASSETS
 )
-
-from strategy_highwin import (
-    generate_bb_signal,
-    calculate_atr,
-    ASSET_PARAMS,
-    STRATEGY_CONFIG,
-)
-
-MAX_SIGNAL_AGE_DAYS = 5
+from strategy_v3 import generate_signal, TradeSignal
 
 
-@dataclass
+@dataclass 
 class ScanResult:
+    """Result from scanning an instrument."""
     symbol: str
     direction: str
+    entry: float
+    stop_loss: float
+    take_profit: float
+    r_multiple: float
+    status: str
     confluence_score: int
-    htf_bias: str
-    location_note: str
-    fib_note: str
-    liquidity_note: str
-    structure_note: str
-    confirmation_note: str
-    rr_note: str
-    summary_reason: str
-    status: str = "scan_only"
-    entry: Optional[float] = None
-    stop_loss: Optional[float] = None
-    tp1: Optional[float] = None
-    tp2: Optional[float] = None
-    tp3: Optional[float] = None
-    tp4: Optional[float] = None
-    tp5: Optional[float] = None
-    setup_type: str = ""
-    what_to_look_for: str = ""
+    reasoning: str
+    timestamp: datetime
+    htf_zone_low: float = 0.0
+    htf_zone_high: float = 0.0
+    bos_level: float = 0.0
+    
+    @property
+    def tp1(self) -> float:
+        return self.take_profit
+    
+    @property
+    def htf_bias(self) -> str:
+        return self.direction.upper()
+    
+    @property
+    def summary_reason(self) -> str:
+        return self.reasoning
 
 
-def _signal_to_scan_result(signal: Dict, symbol: str) -> ScanResult:
-    """Convert a strategy_highwin signal dict to ScanResult for Discord."""
-    direction = signal['direction'].upper()
-    
-    rsi_val = signal.get('rsi', 50)
-    adx_val = signal.get('adx', 20)
-    signal_type = signal.get('signal_type', 'bb_reversal')
-    
-    if direction == "LONG":
-        dir_text = "BULLISH"
-        what_to_look = "Long entry - BB bounce from lower band with RSI oversold"
-    else:
-        dir_text = "BEARISH"
-        what_to_look = "Short entry - BB rejection from upper band with RSI overbought"
-    
-    summary = (
-        f"{dir_text} | BB+RSI Mean Reversion | "
-        f"RSI(2)={rsi_val:.1f}, ADX={adx_val:.1f} | "
-        f"4R Target"
-    )
-    
+def convert_signal_to_scan_result(signal: TradeSignal) -> ScanResult:
+    """Convert a TradeSignal to ScanResult for Discord display."""
     return ScanResult(
-        symbol=symbol,
-        direction=signal['direction'],
-        confluence_score=5,
-        htf_bias=f"ADX={adx_val:.1f} (range mode)" if adx_val < 35 else f"ADX={adx_val:.1f} (trending)",
-        location_note=f"Bollinger Band {signal_type}",
-        fib_note="",
-        liquidity_note="",
-        structure_note=f"RSI(2) = {rsi_val:.1f}",
-        confirmation_note="BB + RSI confirmed",
-        rr_note="4:1 R:R target",
-        summary_reason=summary,
-        status="active",
-        entry=signal['entry'],
-        stop_loss=signal['sl'],
-        tp1=signal['tp1'],
-        tp2=signal['tp2'],
-        tp3=signal['tp3'],
-        setup_type="BB Mean Reversion",
-        what_to_look_for=what_to_look,
+        symbol=signal.symbol,
+        direction=signal.direction,
+        entry=signal.entry,
+        stop_loss=signal.stop_loss,
+        take_profit=signal.take_profit,
+        r_multiple=signal.r_multiple,
+        status=signal.status,
+        confluence_score=signal.confluence_score,
+        reasoning=signal.reasoning,
+        timestamp=signal.timestamp,
+        htf_zone_low=signal.htf_zone[0] if signal.htf_zone else 0.0,
+        htf_zone_high=signal.htf_zone[1] if signal.htf_zone else 0.0,
+        bos_level=signal.bos_level
     )
 
 
 def scan_single_asset(symbol: str) -> Optional[ScanResult]:
-    """Scan a single asset using the challenge-validated BB+RSI strategy."""
+    """
+    Scan a single instrument using V3 strategy.
+    Fetches H4, Daily, and Weekly data from OANDA.
+    """
     try:
-        candles = get_ohlcv(symbol, "H4", count=100)
-        if not candles or len(candles) < 30:
+        h4_candles = get_ohlcv(symbol, timeframe="H4", count=200)
+        daily_candles = get_ohlcv(symbol, timeframe="D", count=200)
+        weekly_candles = get_ohlcv(symbol, timeframe="W", count=50)
+        
+        if len(h4_candles) < 50 or len(daily_candles) < 50 or len(weekly_candles) < 10:
             return None
         
-        signal = generate_bb_signal(candles, symbol)
+        signal = generate_signal(
+            symbol=symbol,
+            h4_candles=h4_candles,
+            daily_candles=daily_candles,
+            weekly_candles=weekly_candles,
+            min_rr=4.0,
+            min_confluence=3
+        )
         
         if signal:
-            return _signal_to_scan_result(signal, symbol)
+            return convert_signal_to_scan_result(signal)
         
         return None
         
@@ -156,9 +141,9 @@ def scan_energies() -> List[ScanResult]:
 def scan_all_markets() -> Dict[str, List[ScanResult]]:
     """Scan all markets and return results by category."""
     return {
-        "forex": scan_forex(),
-        "metals": scan_metals(),
-        "indices": scan_indices(),
-        "energies": scan_energies(),
-        "crypto": scan_crypto(),
+        "Forex": scan_forex(),
+        "Metals": scan_metals(),
+        "Indices": scan_indices(),
+        "Energies": scan_energies(),
+        "Crypto": scan_crypto(),
     }

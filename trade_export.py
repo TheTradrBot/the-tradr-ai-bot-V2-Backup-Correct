@@ -3,13 +3,16 @@ Trade Export Module for Blueprint Trader AI.
 
 This module handles exporting backtest trades to CSV format
 for analysis and verification.
+
+Uses V3 strategy (HTF S/R + BOS + Structural TPs)
 """
 
 import csv
 import io
 from datetime import datetime
 from typing import Dict, List, Optional
-from strategy_highwin import run_yearly_backtest
+
+from challenge_5ers import run_backtest
 
 
 def export_trades_to_csv(
@@ -29,7 +32,9 @@ def export_trades_to_csv(
         CSV string content
     """
     if trades is None:
-        result = run_yearly_backtest(asset, year)
+        start_date = datetime(year, 1, 1)
+        end_date = datetime(year, 12, 31)
+        result = run_backtest(asset, start_date, end_date)
         trades = result.get("trades", [])
     
     output = io.StringIO()
@@ -41,31 +46,41 @@ def export_trades_to_csv(
         "Entry Date",
         "Entry Price",
         "Stop Loss",
-        "TP (4R)",
+        "Take Profit",
         "Exit Date",
         "Exit Price",
         "Exit Reason",
-        "Result (R)",
+        "R Multiple",
+        "R Result",
         "P/L ($)",
     ]
     writer.writerow(headers)
     
     for trade in trades:
-        entry_price = trade.get("entry", 0)
-        stop_loss = trade.get("sl", 0)
-        tp = trade.get("tp3", 0)
+        entry_price = trade.get("entry_price", 0)
+        stop_loss = trade.get("stop_loss", 0)
+        take_profit = trade.get("take_profit", 0)
+        
+        entry_time = trade.get("entry_time", "")
+        if hasattr(entry_time, 'isoformat'):
+            entry_time = entry_time.isoformat()
+        
+        exit_time = trade.get("exit_time", "")
+        if hasattr(exit_time, 'isoformat'):
+            exit_time = exit_time.isoformat()
         
         row = [
-            asset,
+            trade.get("symbol", asset),
             trade.get("direction", ""),
-            trade.get("entry_time", ""),
+            entry_time,
             f"{entry_price:.5f}" if entry_price else "",
             f"{stop_loss:.5f}" if stop_loss else "",
-            f"{tp:.5f}" if tp else "",
-            trade.get("exit_time", ""),
+            f"{take_profit:.5f}" if take_profit else "",
+            exit_time,
             f"{trade.get('exit_price', 0):.5f}" if trade.get("exit_price") else "",
-            trade.get("exit_reason", ""),
+            trade.get("exit_type", ""),
             f"{trade.get('r_multiple', 0):+.2f}",
+            f"{trade.get('r_result', 0):+.2f}",
             f"${trade.get('pnl', 0):+.0f}",
         ]
         writer.writerow(row)
@@ -84,8 +99,20 @@ def get_backtest_with_trades(asset: str, year: int) -> Dict:
     Returns:
         Dictionary with backtest results including detailed trades
     """
-    result = run_yearly_backtest(asset, year)
-    return result
+    start_date = datetime(year, 1, 1)
+    end_date = datetime(year, 12, 31)
+    result = run_backtest(asset, start_date, end_date)
+    
+    trades = result.get("trades", [])
+    stats = result.get("stats", {})
+    
+    return {
+        "trades": trades,
+        "total_trades": stats.get("total_trades", len(trades)),
+        "win_rate": stats.get("win_rate", 0),
+        "net_pnl": stats.get("total_pnl", 0),
+        "stats": stats,
+    }
 
 
 def generate_trade_summary(trades: List[Dict]) -> str:
@@ -102,11 +129,11 @@ def generate_trade_summary(trades: List[Dict]) -> str:
         return "No trades in period."
     
     total = len(trades)
-    wins = sum(1 for t in trades if t.get("r_multiple", 0) > 0)
-    losses = sum(1 for t in trades if t.get("r_multiple", 0) < 0)
+    wins = sum(1 for t in trades if t.get("r_result", t.get("r_multiple", 0)) > 0)
+    losses = sum(1 for t in trades if t.get("r_result", t.get("r_multiple", 0)) < 0)
     breakeven = total - wins - losses
     
-    total_rr = sum(t.get("r_multiple", 0) for t in trades)
+    total_rr = sum(t.get("r_result", t.get("r_multiple", 0)) for t in trades)
     avg_rr = total_rr / total if total > 0 else 0
     
     total_pnl = sum(t.get("pnl", 0) for t in trades)
