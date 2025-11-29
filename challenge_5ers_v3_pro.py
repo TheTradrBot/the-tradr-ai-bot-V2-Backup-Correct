@@ -17,12 +17,36 @@ from challenge_simulator import simulate_challenge
 
 ASSETS = [
     'EUR_USD', 'GBP_USD', 'USD_JPY', 'USD_CHF', 'AUD_USD', 'NZD_USD', 'USD_CAD',
-    'EUR_GBP', 'EUR_JPY', 'GBP_JPY',
+    'EUR_GBP', 'EUR_JPY', 'GBP_JPY', 'AUD_JPY', 'CAD_JPY', 'CHF_JPY',
+    'EUR_AUD', 'EUR_CAD', 'EUR_CHF', 'EUR_NZD',
+    'GBP_AUD', 'GBP_CAD', 'GBP_CHF', 'GBP_NZD',
+    'AUD_CAD', 'AUD_CHF', 'AUD_NZD', 'NZD_CAD', 'NZD_CHF',
     'XAU_USD', 'XAG_USD',
-    'NAS100_USD', 'SPX500_USD',
-    'WTICO_USD',
+    'NAS100_USD', 'SPX500_USD', 'US30_USD', 'DE30_EUR', 'UK100_GBP',
+    'WTICO_USD', 'BCO_USD', 'NATGAS_USD',
     'BTC_USD', 'ETH_USD'
 ]
+
+AGGRESSIVE_ASSET_CONFIGS = {
+    'EUR_USD': {'conf': 2, 'rr': 1.5},
+    'GBP_USD': {'conf': 2, 'rr': 1.5},
+    'USD_JPY': {'conf': 2, 'rr': 1.5},
+    'USD_CHF': {'conf': 2, 'rr': 1.5},
+    'USD_CAD': {'conf': 2, 'rr': 1.5},
+    'AUD_USD': {'conf': 2, 'rr': 1.5},
+    'NZD_USD': {'conf': 2, 'rr': 1.5},
+    'EUR_GBP': {'conf': 2, 'rr': 1.5},
+    'EUR_JPY': {'conf': 2, 'rr': 1.5},
+    'GBP_JPY': {'conf': 2, 'rr': 1.5},
+    'XAU_USD': {'conf': 2, 'rr': 1.5},
+    'XAG_USD': {'conf': 2, 'rr': 1.5},
+    'WTICO_USD': {'conf': 2, 'rr': 1.5},
+    'BCO_USD': {'conf': 2, 'rr': 1.5},
+    'NAS100_USD': {'conf': 2, 'rr': 1.5},
+    'SPX500_USD': {'conf': 2, 'rr': 1.5},
+    'BTC_USD': {'conf': 2, 'rr': 1.5},
+    'ETH_USD': {'conf': 2, 'rr': 1.5},
+}
 
 
 def fetch_data_for_v3_pro(symbol: str) -> tuple:
@@ -60,9 +84,11 @@ def run_v3_pro_backtest_for_asset(
     year: int,
     min_rr: float = 2.5,
     min_confluence: int = 3,
-    risk_per_trade: float = 250.0
+    risk_per_trade: float = 250.0,
+    partial_tp: bool = True,
+    partial_tp_r: float = 1.5
 ) -> Dict:
-    """Run V3 Pro backtest for a single asset for a year."""
+    """Run V3 Pro backtest for a single asset for a year with AGGRESSIVE settings."""
     
     try:
         daily_candles, weekly_candles = fetch_data_for_v3_pro(symbol)
@@ -82,7 +108,9 @@ def run_v3_pro_backtest_for_asset(
             weekly_candles=weekly_candles,
             min_rr=min_rr,
             min_confluence=min_confluence,
-            risk_per_trade=risk_per_trade
+            risk_per_trade=risk_per_trade,
+            partial_tp=partial_tp,
+            partial_tp_r=partial_tp_r
         )
         
         stats = calculate_backtest_stats(trades)

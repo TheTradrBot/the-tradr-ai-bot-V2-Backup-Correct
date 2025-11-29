@@ -630,14 +630,19 @@ def backtest_v3_pro(
     risk_per_trade: float = 250.0,
     cooldown_days: int = 2,
     max_daily_trades: int = 1,
-    day_stagger: bool = True
+    day_stagger: bool = True,
+    partial_tp: bool = True,
+    partial_tp_r: float = 1.5
 ) -> List[Dict]:
     """
-    Backtest V3 Pro strategy on daily timeframe.
-    Trades held for 2-8 days typically.
+    Backtest V3 Pro strategy on daily timeframe with AGGRESSIVE settings.
     
-    day_stagger: If True, limits to 1 trade per day to spread wins across calendar days
-                 (helps pass 5%ers "3 profitable days" requirement)
+    AGGRESSIVE FEATURES:
+    - partial_tp: Close 50% at partial_tp_r (1.5R) to lock in profitable day
+    - day_stagger: Limit 1 trade per day to spread wins across calendar days
+    - Helps meet 5%ers "3 profitable days" requirement
+    
+    Trades held for 2-8 days typically.
     """
     trades = []
     last_trade_bar = -cooldown_days
@@ -699,11 +704,19 @@ def backtest_v3_pro(
         exit_bar = None
         be_activated = False
         highest_r = 0.0
+        partial_taken = False
+        partial_exit_bar = None
+        partial_exit_price = None
+        
+        risk = abs(entry - sl)
+        
+        if signal.direction == 'long':
+            partial_level = entry + (risk * partial_tp_r) if partial_tp else None
+        else:
+            partial_level = entry - (risk * partial_tp_r) if partial_tp else None
         
         for j in range(i + 1, min(i + 40, len(daily_candles))):
             bar = daily_candles[j]
-            
-            risk = abs(entry - sl)
             
             if signal.direction == 'long':
                 current_r = (bar['high'] - entry) / risk if risk > 0 else 0
@@ -716,6 +729,13 @@ def backtest_v3_pro(
                     exit_price = sl if not be_activated else entry
                     exit_bar = j
                     break
+                
+                if partial_tp and not partial_taken and partial_level and bar['high'] >= partial_level:
+                    partial_taken = True
+                    partial_exit_bar = j
+                    partial_exit_price = partial_level
+                    be_activated = True
+                    sl = entry
                 
                 if bar['high'] >= be_level and not be_activated:
                     be_activated = True
@@ -738,6 +758,13 @@ def backtest_v3_pro(
                     exit_bar = j
                     break
                 
+                if partial_tp and not partial_taken and partial_level and bar['low'] <= partial_level:
+                    partial_taken = True
+                    partial_exit_bar = j
+                    partial_exit_price = partial_level
+                    be_activated = True
+                    sl = entry
+                
                 if bar['low'] <= be_level and not be_activated:
                     be_activated = True
                     sl = entry
@@ -753,18 +780,52 @@ def backtest_v3_pro(
             exit_price = daily_candles[exit_bar]['close']
         
         if exit_price is not None:
-            if signal.direction == 'long':
-                pnl_pips = exit_price - entry
-            else:
-                pnl_pips = entry - exit_price
-            
             risk_amount = abs(entry - signal.stop_loss)
-            if risk_amount > 0:
-                r_multiple = pnl_pips / risk_amount
+            
+            if partial_taken and partial_exit_price:
+                if signal.direction == 'long':
+                    partial_pnl = (partial_exit_price - entry) / risk_amount if risk_amount > 0 else 0
+                    remaining_pnl = (exit_price - entry) / risk_amount if risk_amount > 0 else 0
+                else:
+                    partial_pnl = (entry - partial_exit_price) / risk_amount if risk_amount > 0 else 0
+                    remaining_pnl = (entry - exit_price) / risk_amount if risk_amount > 0 else 0
+                
+                r_multiple = (partial_pnl * 0.5) + (remaining_pnl * 0.5)
                 pnl_usd = r_multiple * risk_per_trade
+                
+                partial_date = daily_candles[partial_exit_bar]['time'][:10] if partial_exit_bar else None
+                
+                if partial_pnl >= partial_tp_r * 0.9:
+                    trades.append({
+                        'entry_time': signal.timestamp,
+                        'exit_time': daily_candles[partial_exit_bar]['time'] if partial_exit_bar else None,
+                        'direction': signal.direction,
+                        'entry': entry,
+                        'exit': partial_exit_price,
+                        'stop_loss': signal.stop_loss,
+                        'take_profit': partial_level,
+                        'pnl_usd': partial_pnl * 0.5 * risk_per_trade,
+                        'r_multiple': partial_pnl * 0.5,
+                        'result': 'PARTIAL_WIN',
+                        'entry_type': signal.entry_type,
+                        'zone_type': signal.zone.zone_type,
+                        'confluence': signal.confluence,
+                        'reasoning': f"Partial TP at {partial_tp_r}R",
+                        'duration_days': partial_exit_bar - i if partial_exit_bar else 0,
+                        'highest_r': partial_pnl
+                    })
             else:
-                r_multiple = 0
-                pnl_usd = 0
+                if signal.direction == 'long':
+                    pnl_pips = exit_price - entry
+                else:
+                    pnl_pips = entry - exit_price
+                
+                if risk_amount > 0:
+                    r_multiple = pnl_pips / risk_amount
+                    pnl_usd = r_multiple * risk_per_trade
+                else:
+                    r_multiple = 0
+                    pnl_usd = 0
             
             if hit_tp:
                 result = 'WIN'
@@ -793,7 +854,8 @@ def backtest_v3_pro(
                 'confluence': signal.confluence,
                 'reasoning': signal.reasoning,
                 'duration_days': trade_duration,
-                'highest_r': highest_r
+                'highest_r': highest_r,
+                'partial_taken': partial_taken
             })
             
             last_trade_bar = i
