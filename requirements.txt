@@ -9,3 +9,5 @@ pandas
 requests
 yfinance
 dukascopy-python
+dukascopy-python
+yfinance
