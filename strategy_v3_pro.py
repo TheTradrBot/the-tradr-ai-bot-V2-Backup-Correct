@@ -540,8 +540,7 @@ def generate_v3_pro_signal(
     daily_candles: List[Dict],
     weekly_candles: List[Dict],
     min_rr: float = 2.5,
-    min_confluence: int = 3,
-    use_monthly_sr: bool = False
+    min_confluence: int = 3
 ) -> Optional[TradeSignal]:
     """
     Generate V3 Pro trading signal - FIBONACCI + WEEKLY S/R VERSION.
@@ -555,7 +554,6 @@ def generate_v3_pro_signal(
     Key Features:
     - Optimal Entry Zone: 0.5-0.66 Fib retracement (wider than golden pocket)
     - Weekly S/R levels as confluence
-    - OPTIONAL: Monthly S/R levels (if use_monthly_sr=True)
     - Break of Structure (BoS) confirmation
     - Stop Loss at 1.0 Fib level (swing high/low with buffer)
     - Fibonacci Extension TPs at -0.25, -0.68, -1.0
@@ -579,10 +577,6 @@ def generate_v3_pro_signal(
     daily_trend = detect_daily_trend(daily_candles, 20)
     
     weekly_sr_levels = find_weekly_sr_levels(weekly_candles, lookback=12)
-    
-    monthly_sr = []
-    if use_monthly_sr:
-        monthly_sr = extract_monthly_sr_from_daily(daily_candles)
     
     daily_zones = identify_supply_demand_zones(daily_candles, daily_atr)
     weekly_zones = identify_supply_demand_zones(weekly_candles, weekly_atr)
@@ -631,10 +625,6 @@ def generate_v3_pro_signal(
         if near_weekly_sr:
             confluence += 1
             reasoning_parts.append(f"Near weekly {sr_type}")
-        
-        if use_monthly_sr and price_near_monthly_sr(current_price, monthly_sr, daily_atr):
-            confluence += 1
-            reasoning_parts.append("Near monthly S/R")
         
         if daily_trend == 'bullish' and direction == 'long':
             confluence += 1
@@ -743,8 +733,7 @@ def backtest_v3_pro(
     max_daily_trades: int = 1,
     day_stagger: bool = True,
     partial_tp: bool = True,
-    partial_tp_r: float = 1.5,
-    use_monthly_sr: bool = False
+    partial_tp_r: float = 1.5
 ) -> List[Dict]:
     """
     Backtest V3 Pro strategy on daily timeframe.
@@ -752,7 +741,6 @@ def backtest_v3_pro(
     FEATURES:
     - partial_tp: Close 50% at partial_tp_r (1.5R) to lock in profitable day
     - day_stagger: Limit 1 trade per day to spread wins across calendar days
-    - use_monthly_sr: OPTIONAL - Use monthly S/R for additional confluence
     
     Trades held for 2-8 days typically.
     """
@@ -791,8 +779,7 @@ def backtest_v3_pro(
             daily_candles=daily_slice,
             weekly_candles=weekly_slice,
             min_rr=min_rr,
-            min_confluence=min_confluence,
-            use_monthly_sr=use_monthly_sr
+            min_confluence=min_confluence
         )
         
         if signal is None:
