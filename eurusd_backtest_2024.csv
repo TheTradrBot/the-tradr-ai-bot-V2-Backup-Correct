@@ -1,0 +1,15 @@
+Entry Date,Exit Date,Direction,Entry Price,Stop Loss,Take Profit,R Multiple,Highest R,Result,Confluence,Zone Type,Duration Days,Reasoning
+2024-05-05,2024-05-14,long,1.07702,1.06765,1.08639,0.5,1.0,PARTIAL_WIN,6,demand,7,Partial TP at 1.0R
+2024-05-05,2024-06-09,long,1.07702,1.06765,1.09324,0,1.56,BE,6,demand,25,Price at demand zone | Daily trend aligned: bullish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2024-09-09,2024-09-11,short,1.10194,1.10641,1.0796,-1.0,0.39,LOSS,6,supply,2,Price at supply zone | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2024-10-06,2024-10-13,short,1.09748,1.10555,1.08941,0.5,1.0,PARTIAL_WIN,7,supply,5,Partial TP at 1.0R
+2024-10-06,2024-10-21,short,1.09748,1.10555,1.0796,1.61,2.26,WIN,7,supply,11,Price at supply zone | Wyckoff Upthrust detected | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Strong impulse from zone
+2024-10-08,2024-10-15,short,1.094,1.10012,1.08788,0.5,1.0,PARTIAL_WIN,6,supply,5,Partial TP at 1.0R
+2024-10-08,2024-10-21,short,1.094,1.10012,1.0796,1.68,2.41,WIN,6,supply,9,Price at supply zone | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2024-10-13,2024-10-16,short,1.09092,1.09996,1.08188,0.5,1.0,PARTIAL_WIN,6,supply,3,Partial TP at 1.0R
+2024-10-13,2024-11-03,short,1.09092,1.09996,1.07245,0,1.64,BE,6,supply,15,Price at supply zone | Daily trend aligned: bearish | Weekly timeframe zone | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2024-10-15,2024-10-16,short,1.08618,1.09036,1.082,0.5,1.0,PARTIAL_WIN,5,supply,1,Partial TP at 1.0R
+2024-10-15,2024-10-17,short,1.08618,1.09036,1.0796,0,1.21,BE,5,supply,2,Price at supply zone | Daily trend aligned: bearish | Strong zone (large impulse) | Momentum aligned | Strong impulse from zone
+2024-10-17,2024-10-20,short,1.08674,1.09056,1.08292,0.5,1.0,PARTIAL_WIN,4,supply,1,Partial TP at 1.0R
+2024-10-17,2024-10-21,short,1.08674,1.09056,1.0796,1.43,1.96,WIN,4,supply,2,Price at supply zone | Daily trend aligned: bearish | Strong zone (large impulse) | Strong impulse from zone
+2024-12-08,2024-12-10,long,1.05538,1.04852,1.08058,-1.0,0.21,LOSS,5,demand,2,Price at demand zone | Daily trend aligned: bullish | Weekly timeframe zone | Strong zone (large impulse) | Strong impulse from zone
