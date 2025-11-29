@@ -14,37 +14,37 @@ from datetime import datetime
 import math
 
 ASSET_PARAMS = {
-    'EUR_USD': {'bb_mult': 2.2, 'atr_sl': 0.5, 'rsi_ob': 92, 'rsi_os': 8, 'adx_max': 22},
-    'GBP_USD': {'bb_mult': 2.2, 'atr_sl': 0.5, 'rsi_ob': 92, 'rsi_os': 8, 'adx_max': 22},
-    'USD_JPY': {'bb_mult': 2.2, 'atr_sl': 0.5, 'rsi_ob': 92, 'rsi_os': 8, 'adx_max': 22},
-    'USD_CHF': {'bb_mult': 2.2, 'atr_sl': 0.5, 'rsi_ob': 92, 'rsi_os': 8, 'adx_max': 22},
-    'AUD_USD': {'bb_mult': 2.2, 'atr_sl': 0.5, 'rsi_ob': 92, 'rsi_os': 8, 'adx_max': 22},
-    'USD_CAD': {'bb_mult': 2.2, 'atr_sl': 0.5, 'rsi_ob': 92, 'rsi_os': 8, 'adx_max': 22},
-    'NZD_USD': {'bb_mult': 2.2, 'atr_sl': 0.5, 'rsi_ob': 92, 'rsi_os': 8, 'adx_max': 22},
-    'EUR_GBP': {'bb_mult': 2.0, 'atr_sl': 0.4, 'rsi_ob': 93, 'rsi_os': 7, 'adx_max': 20},
-    'EUR_JPY': {'bb_mult': 2.3, 'atr_sl': 0.55, 'rsi_ob': 91, 'rsi_os': 9, 'adx_max': 23},
-    'GBP_JPY': {'bb_mult': 2.4, 'atr_sl': 0.6, 'rsi_ob': 90, 'rsi_os': 10, 'adx_max': 24},
-    'XAU_USD': {'bb_mult': 2.5, 'atr_sl': 0.6, 'rsi_ob': 90, 'rsi_os': 10, 'adx_max': 25},
-    'XAG_USD': {'bb_mult': 2.5, 'atr_sl': 0.6, 'rsi_ob': 90, 'rsi_os': 10, 'adx_max': 25},
-    'SPX500_USD': {'bb_mult': 2.3, 'atr_sl': 0.55, 'rsi_ob': 91, 'rsi_os': 9, 'adx_max': 23},
-    'NAS100_USD': {'bb_mult': 2.4, 'atr_sl': 0.6, 'rsi_ob': 90, 'rsi_os': 10, 'adx_max': 24},
-    'BTC_USD': {'bb_mult': 2.6, 'atr_sl': 0.7, 'rsi_ob': 88, 'rsi_os': 12, 'adx_max': 28},
-    'ETH_USD': {'bb_mult': 2.6, 'atr_sl': 0.7, 'rsi_ob': 88, 'rsi_os': 12, 'adx_max': 28},
+    'EUR_USD': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 85, 'rsi_os': 15, 'adx_max': 35},
+    'GBP_USD': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 85, 'rsi_os': 15, 'adx_max': 35},
+    'USD_JPY': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 85, 'rsi_os': 15, 'adx_max': 35},
+    'USD_CHF': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 85, 'rsi_os': 15, 'adx_max': 35},
+    'AUD_USD': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 85, 'rsi_os': 15, 'adx_max': 35},
+    'USD_CAD': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 85, 'rsi_os': 15, 'adx_max': 35},
+    'NZD_USD': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 85, 'rsi_os': 15, 'adx_max': 35},
+    'EUR_GBP': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 85, 'rsi_os': 15, 'adx_max': 35},
+    'EUR_JPY': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 85, 'rsi_os': 15, 'adx_max': 35},
+    'GBP_JPY': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 85, 'rsi_os': 15, 'adx_max': 35},
+    'XAU_USD': {'bb_mult': 2.2, 'atr_sl': 0.4, 'rsi_ob': 82, 'rsi_os': 18, 'adx_max': 40},
+    'XAG_USD': {'bb_mult': 2.2, 'atr_sl': 0.4, 'rsi_ob': 82, 'rsi_os': 18, 'adx_max': 40},
+    'SPX500_USD': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 82, 'rsi_os': 18, 'adx_max': 40},
+    'NAS100_USD': {'bb_mult': 2.0, 'atr_sl': 0.35, 'rsi_ob': 82, 'rsi_os': 18, 'adx_max': 40},
+    'BTC_USD': {'bb_mult': 2.2, 'atr_sl': 0.45, 'rsi_ob': 80, 'rsi_os': 20, 'adx_max': 45},
+    'ETH_USD': {'bb_mult': 2.2, 'atr_sl': 0.45, 'rsi_ob': 80, 'rsi_os': 20, 'adx_max': 45},
 }
 
 STRATEGY_CONFIG = {
-    'risk_per_trade_pct': 1.25,
+    'risk_per_trade_pct': 2.5,
     'max_daily_loss_pct': 4.5,
     'soft_daily_loss_pct': 3.0,
     'max_total_drawdown_pct': 9.0,
-    'tp1_ratio': 0.85,
-    'tp1_size': 0.70,
-    'tp2_ratio': 1.4,
-    'tp2_size': 0.20,
-    'tp3_ratio': 2.0,
-    'tp3_size': 0.10,
+    'tp1_ratio': 1.5,
+    'tp1_size': 0.50,
+    'tp2_ratio': 2.5,
+    'tp2_size': 0.30,
+    'tp3_ratio': 4.0,
+    'tp3_size': 0.20,
     'cooldown_after_loss': 1,
-    'max_trades_per_day': 15,
+    'max_trades_per_day': 12,
     'bb_period': 20,
     'atr_period': 14,
 }
@@ -320,9 +320,9 @@ def generate_bb_signal(candles: List[Dict], symbol: str) -> Optional[Dict]:
     if long_condition:
         entry = current_price
         sl = entry - sl_distance
-        tp1 = entry + sl_distance * 0.6
-        tp2 = entry + sl_distance * 1.0
-        tp3 = entry + sl_distance * 1.5
+        tp1 = entry + sl_distance * 1.5
+        tp2 = entry + sl_distance * 2.5
+        tp3 = entry + sl_distance * 4.0
         
         return {
             'direction': 'long',
@@ -340,9 +340,9 @@ def generate_bb_signal(candles: List[Dict], symbol: str) -> Optional[Dict]:
     elif short_condition:
         entry = current_price
         sl = entry + sl_distance
-        tp1 = entry - sl_distance * 0.6
-        tp2 = entry - sl_distance * 1.0
-        tp3 = entry - sl_distance * 1.5
+        tp1 = entry - sl_distance * 1.5
+        tp2 = entry - sl_distance * 2.5
+        tp3 = entry - sl_distance * 4.0
         
         return {
             'direction': 'short',
@@ -442,14 +442,16 @@ def generate_signal(candles: List[Dict], symbol: str) -> Optional[Dict]:
     return None
 
 
-def simulate_trade(candles: List[Dict], signal: Dict, start_idx: int) -> Dict:
-    """Simulate trade with staggered exits."""
+def simulate_trade(candles: List[Dict], signal: Dict, start_idx: int, single_tp: bool = True) -> Dict:
+    """Simulate trade with single TP or staggered exits."""
     entry = signal['entry']
     sl = signal['sl']
     tp1 = signal['tp1']
     tp2 = signal['tp2']
     tp3 = signal['tp3']
     direction = signal['direction']
+    
+    target_tp = tp3 if single_tp else tp1
     
     result = {
         'entry': entry,
@@ -471,87 +473,127 @@ def simulate_trade(candles: List[Dict], signal: Dict, start_idx: int) -> Dict:
         'partial_pnl': 0,
     }
     
-    remaining_size = 1.0
-    partial_pnl = 0
-    
-    for i in range(start_idx + 1, min(start_idx + 100, len(candles))):
-        candle = candles[i]
+    if single_tp:
+        for i in range(start_idx + 1, min(start_idx + 100, len(candles))):
+            candle = candles[i]
+            
+            if direction == 'long':
+                if candle['low'] <= sl:
+                    result['hit_sl'] = True
+                    result['exit_price'] = sl
+                    result['exit_time'] = candle['time']
+                    result['pnl_pct'] = (sl - entry) / entry
+                    break
+                
+                if candle['high'] >= target_tp:
+                    result['hit_tp2'] = True
+                    result['exit_price'] = target_tp
+                    result['exit_time'] = candle['time']
+                    result['pnl_pct'] = (target_tp - entry) / entry
+                    break
+            else:
+                if candle['high'] >= sl:
+                    result['hit_sl'] = True
+                    result['exit_price'] = sl
+                    result['exit_time'] = candle['time']
+                    result['pnl_pct'] = (entry - sl) / entry
+                    break
+                
+                if candle['low'] <= target_tp:
+                    result['hit_tp2'] = True
+                    result['exit_price'] = target_tp
+                    result['exit_time'] = candle['time']
+                    result['pnl_pct'] = (entry - target_tp) / entry
+                    break
+    else:
+        remaining_size = 1.0
+        partial_pnl = 0
         
-        if direction == 'long':
-            if candle['low'] <= sl:
-                result['hit_sl'] = True
-                result['exit_price'] = sl
-                result['exit_time'] = candle['time']
-                sl_loss = (sl - entry) / entry * remaining_size
-                result['pnl_pct'] = partial_pnl + sl_loss
-                break
+        for i in range(start_idx + 1, min(start_idx + 100, len(candles))):
+            candle = candles[i]
             
-            if not result['hit_tp1'] and candle['high'] >= tp1:
-                result['hit_tp1'] = True
-                pnl = (tp1 - entry) / entry * STRATEGY_CONFIG['tp1_size']
-                partial_pnl += pnl
-                remaining_size -= STRATEGY_CONFIG['tp1_size']
-                sl = entry
+            if direction == 'long':
+                if candle['low'] <= sl:
+                    result['hit_sl'] = True
+                    result['exit_price'] = sl
+                    result['exit_time'] = candle['time']
+                    sl_loss = (sl - entry) / entry * remaining_size
+                    result['pnl_pct'] = partial_pnl + sl_loss
+                    break
+                
+                if not result['hit_tp1'] and candle['high'] >= tp1:
+                    result['hit_tp1'] = True
+                    pnl = (tp1 - entry) / entry * STRATEGY_CONFIG['tp1_size']
+                    partial_pnl += pnl
+                    remaining_size -= STRATEGY_CONFIG['tp1_size']
+                    sl = entry
+                
+                if not result['hit_tp2'] and candle['high'] >= tp2:
+                    result['hit_tp2'] = True
+                    pnl = (tp2 - entry) / entry * STRATEGY_CONFIG['tp2_size']
+                    partial_pnl += pnl
+                    remaining_size -= STRATEGY_CONFIG['tp2_size']
+                    sl = tp1
+                
+                if not result['hit_tp3'] and candle['high'] >= tp3:
+                    result['hit_tp3'] = True
+                    pnl = (tp3 - entry) / entry * STRATEGY_CONFIG['tp3_size']
+                    partial_pnl += pnl
+                    remaining_size = 0
+                    result['exit_price'] = tp3
+                    result['exit_time'] = candle['time']
+                    result['pnl_pct'] = partial_pnl
+                    break
             
-            if not result['hit_tp2'] and candle['high'] >= tp2:
-                result['hit_tp2'] = True
-                pnl = (tp2 - entry) / entry * STRATEGY_CONFIG['tp2_size']
-                partial_pnl += pnl
-                remaining_size -= STRATEGY_CONFIG['tp2_size']
-                sl = tp1
-            
-            if not result['hit_tp3'] and candle['high'] >= tp3:
-                result['hit_tp3'] = True
-                pnl = (tp3 - entry) / entry * STRATEGY_CONFIG['tp3_size']
-                partial_pnl += pnl
-                remaining_size = 0
-                result['exit_price'] = tp3
-                result['exit_time'] = candle['time']
-                result['pnl_pct'] = partial_pnl
-                break
-        
-        else:
-            if candle['high'] >= sl:
-                result['hit_sl'] = True
-                result['exit_price'] = sl
-                result['exit_time'] = candle['time']
-                sl_loss = (entry - sl) / entry * remaining_size
-                result['pnl_pct'] = partial_pnl + sl_loss
-                break
-            
-            if not result['hit_tp1'] and candle['low'] <= tp1:
-                result['hit_tp1'] = True
-                pnl = (entry - tp1) / entry * STRATEGY_CONFIG['tp1_size']
-                partial_pnl += pnl
-                remaining_size -= STRATEGY_CONFIG['tp1_size']
-                sl = entry
-            
-            if not result['hit_tp2'] and candle['low'] <= tp2:
-                result['hit_tp2'] = True
-                pnl = (entry - tp2) / entry * STRATEGY_CONFIG['tp2_size']
-                partial_pnl += pnl
-                remaining_size -= STRATEGY_CONFIG['tp2_size']
-                sl = tp1
-            
-            if not result['hit_tp3'] and candle['low'] <= tp3:
-                result['hit_tp3'] = True
-                pnl = (entry - tp3) / entry * STRATEGY_CONFIG['tp3_size']
-                partial_pnl += pnl
-                remaining_size = 0
-                result['exit_price'] = tp3
-                result['exit_time'] = candle['time']
-                result['pnl_pct'] = partial_pnl
-                break
+            else:
+                if candle['high'] >= sl:
+                    result['hit_sl'] = True
+                    result['exit_price'] = sl
+                    result['exit_time'] = candle['time']
+                    sl_loss = (entry - sl) / entry * remaining_size
+                    result['pnl_pct'] = partial_pnl + sl_loss
+                    break
+                
+                if not result['hit_tp1'] and candle['low'] <= tp1:
+                    result['hit_tp1'] = True
+                    pnl = (entry - tp1) / entry * STRATEGY_CONFIG['tp1_size']
+                    partial_pnl += pnl
+                    remaining_size -= STRATEGY_CONFIG['tp1_size']
+                    sl = entry
+                
+                if not result['hit_tp2'] and candle['low'] <= tp2:
+                    result['hit_tp2'] = True
+                    pnl = (entry - tp2) / entry * STRATEGY_CONFIG['tp2_size']
+                    partial_pnl += pnl
+                    remaining_size -= STRATEGY_CONFIG['tp2_size']
+                    sl = tp1
+                
+                if not result['hit_tp3'] and candle['low'] <= tp3:
+                    result['hit_tp3'] = True
+                    pnl = (entry - tp3) / entry * STRATEGY_CONFIG['tp3_size']
+                    partial_pnl += pnl
+                    remaining_size = 0
+                    result['exit_price'] = tp3
+                    result['exit_time'] = candle['time']
+                    result['pnl_pct'] = partial_pnl
+                    break
     
     if result['exit_time'] is None:
-        result['exit_time'] = candles[-1]['time']
-        result['exit_price'] = candles[-1]['close']
-        if direction == 'long':
-            result['pnl_pct'] = partial_pnl + (candles[-1]['close'] - entry) / entry * remaining_size
+        result['exit_time'] = candles[min(start_idx + 100, len(candles) - 1)]['time']
+        last_price = candles[min(start_idx + 100, len(candles) - 1)]['close']
+        result['exit_price'] = last_price
+        if single_tp:
+            if direction == 'long':
+                result['pnl_pct'] = (last_price - entry) / entry
+            else:
+                result['pnl_pct'] = (entry - last_price) / entry
         else:
-            result['pnl_pct'] = partial_pnl + (entry - candles[-1]['close']) / entry * remaining_size
+            if direction == 'long':
+                result['pnl_pct'] = partial_pnl + (last_price - entry) / entry * remaining_size
+            else:
+                result['pnl_pct'] = partial_pnl + (entry - last_price) / entry * remaining_size
+            result['partial_pnl'] = partial_pnl
     
-    result['partial_pnl'] = partial_pnl
     result['won'] = result['pnl_pct'] > 0
     
     return result

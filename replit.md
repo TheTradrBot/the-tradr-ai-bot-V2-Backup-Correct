@@ -15,25 +15,39 @@ Blueprint Trader AI is an automated trading signal bot designed to identify high
 - **Risk Per Trade**: 2.5% ($250 per trade)
 - **Maximum Trades Per Day**: 12
 
-### CURRENT OPTIMIZED Strategy (Active) - V3 HTF Confluence + Archer EMA
-The strategy uses market structure and EMA crossovers for trend identification:
+### CURRENT Strategy - High R:R Bollinger Band Mean Reversion
+Based on architect analysis, pivoted from high win-rate to high R:R approach.
 
-**Strategy Components:**
-- **HTF S/R**: Swing highs/lows identified from 4H candles
-- **Market Structure**: HH/HL (bullish) or LH/LL (bearish) pattern detection
-- **Supply/Demand Zones**: Identified at swing points with impulse move validation
-- **EMA 21/86**: Archer-style trend filter (crossover + pullback entries)
-- **3-Candle Rule**: Entry confirmation when price holds in zone for 3 candles
-- **Structure-based TPs**: Prior swing highs/lows used as take profit targets
+**Key Insight**: With $250 risk per trade and 4:1 R:R, only ~20-25% win rate is needed to pass challenge.
 
-**Entry Types:**
-| Entry Type | Conditions | Confluence |
-|------------|------------|------------|
-| Zone Entry | Price in demand/supply zone + 3-candle hold | HTF + EMA + Zone + Confirmation |
-| EMA Cross | Fresh EMA 21/86 crossover | HTF + EMA Cross |
-| EMA Pullback | Price near EMA 21 in trend | HTF + EMA Pullback |
-| Trend Continuation | Price above/below EMA in trend | EMA Trend Continuation |
-| Strong Candle | 70%+ body candle in trend | Strong Candle |
+| R:R Target | Min Win Rate | Expected Monthly P/L |
+|------------|--------------|----------------------|
+| 1.5:1 | 50% | +$1,875 |
+| 2.5:1 | 35% | +$1,688 |
+| 4.0:1 | 25% | +$1,875 |
+| 6.0:1 | 20% | +$3,000 |
+
+**Strategy Components (strategy_highwin.py):**
+- **Entry**: Bollinger Band (2.0σ) + RSI(2) extremes (15/85)
+- **ADX Filter**: Only trade when ADX < 35 (range conditions)
+- **Stop Loss**: 0.35 ATR from entry
+- **Take Profit**: Single target at 4R (not staggered)
+- **Timeframe**: H4 candles (resampled from 1H Dukascopy data)
+
+**Challenge Simulator (challenge_simulator.py):**
+- Proper position sizing with $250 fixed risk per trade
+- Daily drawdown (5%) and total drawdown (10%) enforcement
+- Minimum 3 profitable days tracking
+- Step 1 (8%) and Step 2 (5%) pass detection
+
+**Backtest Results (2024, 4R Single TP):**
+| Asset | Trades | Win Rate | Challenge Result |
+|-------|--------|----------|------------------|
+| XAU_USD | 67 | 22.4% | **PASS (+$2,000)** |
+| NAS100_USD | 75 | 18.7% | BLOWN (-$1,000) |
+| AUD_USD | 95 | 20.0% | BLOWN (-$1,000) |
+| GBP_USD | 100 | 17.0% | BLOWN (-$1,250) |
+| EUR_USD | 96 | 19.8% | BLOWN (-$1,250) |
 
 ### Latest Backtest Results (Sep 2024 - Oct 2025)
 | Period | Total Net | Avg Monthly | Pass Rate | Best Month | $3k+ Months |
