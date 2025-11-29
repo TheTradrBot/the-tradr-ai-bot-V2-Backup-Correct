@@ -15,3 +15,5 @@ dukascopy-python
 yfinance
 dukascopy-python
 yfinance
+dukascopy-python
+yfinance
