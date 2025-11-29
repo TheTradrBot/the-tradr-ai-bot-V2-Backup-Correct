@@ -235,9 +235,14 @@ def run_v3_pro_backtest_for_asset(
     start_month: int = 1,
     end_month: int = 12
 ) -> Dict:
-    """Run V3 Pro backtest for a single asset for a year with AGGRESSIVE settings. Optionally filter by month range."""
+    """Run V3 Pro backtest for a single asset for a year with AGGRESSIVE settings. Optionally filter by month range.
+    
+    IMPORTANT: Includes warmup period (3 months prior) to ensure zones calculate correctly.
+    """
     
     try:
+        from datetime import datetime, timedelta as td
+        
         # Use asset-specific config if available, otherwise use defaults
         if symbol in AGGRESSIVE_ASSET_CONFIGS:
             config = AGGRESSIVE_ASSET_CONFIGS[symbol]
@@ -256,16 +261,38 @@ def run_v3_pro_backtest_for_asset(
         if len(daily_candles) < 100:
             return {'error': f'Insufficient data: {len(daily_candles)} daily candles'}
         
-        year_str = str(year)
-        daily_candles = [c for c in daily_candles if c['time'].startswith(year_str)]
-        weekly_candles = [c for c in weekly_candles if c['time'].startswith(year_str) or c['time'].startswith(str(year-1))]
+        def parse_time(time_str):
+            try:
+                if hasattr(time_str, 'strftime'):
+                    return time_str
+                return datetime.fromisoformat(time_str.replace('Z', '+00:00').split('+')[0])
+            except:
+                return datetime.min
         
-        if len(daily_candles) < 60:
-            return {'error': f'Insufficient data for {year}: {len(daily_candles)} daily candles'}
+        warmup_start = datetime(year, start_month, 1) - td(days=120)
+        weekly_warmup_start = datetime(year, start_month, 1) - td(days=400)
+        range_end = datetime(year, end_month, 28)
+        if end_month == 12:
+            range_end = datetime(year, 12, 31)
+        
+        filtered_daily = []
+        for c in daily_candles:
+            c_time = parse_time(c['time'])
+            if c_time >= warmup_start and c_time <= range_end:
+                filtered_daily.append(c)
+        
+        filtered_weekly = []
+        for c in weekly_candles:
+            c_time = parse_time(c['time'])
+            if c_time >= weekly_warmup_start and c_time <= range_end:
+                filtered_weekly.append(c)
+        
+        if len(filtered_daily) < 60:
+            return {'error': f'Insufficient data for {year}: {len(filtered_daily)} daily candles'}
         
         trades = backtest_v3_pro(
-            daily_candles=daily_candles,
-            weekly_candles=weekly_candles,
+            daily_candles=filtered_daily,
+            weekly_candles=filtered_weekly,
             min_rr=min_rr,
             min_confluence=min_confluence,
             risk_per_trade=risk_per_trade,
@@ -275,13 +302,16 @@ def run_v3_pro_backtest_for_asset(
         
         if start_month > 1 or end_month < 12:
             filtered_trades = []
+            target_start = datetime(year, start_month, 1)
+            target_end = datetime(year, end_month, 28)
+            
             for t in trades:
-                entry_time_str = t['entry_time']
+                entry_time_str = t.get('entry_time', '')
                 try:
-                    month = int(entry_time_str.split('-')[1])
-                    if start_month <= month <= end_month:
+                    entry_dt = parse_time(entry_time_str)
+                    if target_start <= entry_dt <= target_end:
                         filtered_trades.append(t)
-                except (ValueError, IndexError):
+                except (ValueError, IndexError, TypeError):
                     pass
             trades = filtered_trades
         
