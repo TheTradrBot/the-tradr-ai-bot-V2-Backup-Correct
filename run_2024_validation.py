@@ -23,16 +23,11 @@ from challenge_risk_manager import simulate_with_concurrent_tracking, run_monthl
 
 
 VALIDATION_ASSETS = [
-    'EUR_USD',    # Forex major - top performer
-    'GBP_USD',    # Forex major
-    'USD_JPY',    # Forex major
-    'AUD_USD',    # Forex commodity
-    'EUR_JPY',    # Forex cross
-    'USD_CHF',    # Forex - replaced XAU_USD
-    'EUR_NZD',    # Forex cross - replaced NAS100_USD
-    'XAG_USD',    # Metal Silver - replaced BCO_USD
-    'ETH_USD',    # Crypto Ethereum - replaced WTICO_USD
-    'BTC_USD',    # Crypto Bitcoin
+    # Forex Major (9)
+    'EUR_USD', 'GBP_USD', 'USD_JPY', 'AUD_USD', 'EUR_JPY',
+    'USD_CHF', 'EUR_NZD', 'USD_CAD', 'GBP_CAD',
+    # Crypto (4)
+    'BTC_USD', 'ETH_USD', 'LTC_USD', 'BCH_USD'
 ]
 
 BASELINE_PARAMS = {

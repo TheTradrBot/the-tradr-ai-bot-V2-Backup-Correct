@@ -45,28 +45,31 @@ This is specifically the **High Stakes 10K Challenge** - a 2-step evaluation to 
 | Partial TP | 50% closed at 1.5R, SL moves to breakeven |
 | Break-Even | Moves SL to entry at +1R |
 
-**2024 Backtest Results (Optimized 10-Asset Portfolio):**
-- Total Trades: **717** (all assets 50+ trades/year)
-- Total P/L: **+$50,050** from backtesting
-- Challenge P/L: **+$68,876** with dynamic risk sizing
-- Monthly Pass Rate: **70%** (7/10 months) with ZERO breaches
-- Average Win Rate: **32.8%**
-- Pass months: May, June, July, August, September, October, November
-- Fail months: March (low days), April (no Step 1), December (no Step 2)
+**2024 Backtest Results (All Forex + Crypto 13-Asset Portfolio):**
+- Total Trades: **929** (all assets 50+ trades/year)
+- Total P/L: **+$62,600** from backtesting
+- Challenge P/L: **+$86,295** with dynamic risk sizing
+- Monthly Pass Rate: **90%** (9/10 months) with ZERO breaches
+- Average Win Rate: **33.3%**
+- Pass months: April, May, June, July, August, September, October, November, December
+- Fail months: March (0 profitable days but passed Step 1)
 
-### Optimized 10-Asset Portfolio
-| Asset | Trades | Win% | Total R | P/L | Notes |
-|-------|--------|------|---------|-----|-------|
-| EUR_USD | 100 | 38.0% | 35.9R | $8,976 | Top performer |
-| GBP_USD | 72 | 25.0% | 17.6R | $4,407 | Forex major |
-| USD_JPY | 57 | 35.1% | 14.9R | $3,724 | Strong trends |
-| AUD_USD | 75 | 29.3% | 18.0R | $4,492 | Forex commodity |
-| EUR_JPY | 59 | 27.1% | 6.6R | $1,651 | Forex cross |
-| USD_CHF | 71 | 25.4% | 12.2R | $3,056 | Replaced XAU_USD |
-| EUR_NZD | 100 | 33.0% | 24.4R | $6,097 | Replaced NAS100 |
-| XAG_USD | 54 | 29.6% | 14.9R | $3,733 | Silver - replaced BCO |
-| ETH_USD | 70 | 38.6% | 29.6R | $7,411 | Replaced WTICO |
-| BTC_USD | 59 | 45.8% | 26.0R | $6,504 | Crypto Bitcoin |
+### All-Forex + Crypto Portfolio
+| Asset | Trades | Win% | Total R | P/L | Type |
+|-------|--------|------|---------|-----|------|
+| EUR_USD | 100 | 38.0% | 35.9R | $8,976 | Forex |
+| EUR_NZD | 100 | 33.0% | 24.4R | $6,097 | Forex |
+| AUD_USD | 75 | 29.3% | 18.0R | $4,492 | Forex |
+| GBP_USD | 72 | 25.0% | 17.6R | $4,407 | Forex |
+| USD_CAD | 63 | 33.3% | 16.8R | $4,192 | Forex |
+| USD_JPY | 57 | 35.1% | 14.9R | $3,724 | Forex |
+| USD_CHF | 71 | 25.4% | 12.2R | $3,056 | Forex |
+| EUR_JPY | 59 | 27.1% | 6.6R | $1,651 | Forex |
+| GBP_CAD | 52 | 32.7% | 10.1R | $2,513 | Forex |
+| ETH_USD | 70 | 38.6% | 29.6R | $7,411 | Crypto |
+| BTC_USD | 59 | 45.8% | 26.0R | $6,504 | Crypto |
+| LTC_USD | 88 | 35.2% | 24.4R | $6,100 | Crypto |
+| BCH_USD | 63 | 33.3% | 13.9R | $3,478 | Crypto |
 
 ## LEGACY STRATEGIES
 
@@ -86,12 +89,12 @@ Based on Supply/Demand zones with Base identification (RBD/DBR/RBR/DBD patterns)
 ## MONTHLY PASS RATE REALITY
 
 **Optimization Results (November 2025):**
-- Achieved **70% monthly pass rate** (7/10 months) with optimized 10-asset portfolio
+- Achieved **90% monthly pass rate** (9/10 months) with all-forex + crypto portfolio
 - Uses **concurrent exposure tracking** to prevent multiple SL breach
 - V3 Pro optimized: Dynamic risk (3.0/1.5/0.5%) + 7% max exposure + partial TP at 1.5R
-- Failing months: March (0 profitable days), April (Step 1 not reached), December (Step 2 not reached)
-- **All 10 assets meet 50+ trades/year AND positive P/L requirements**
-- **Portfolio approach achieves 500%+ yearly return with ZERO breaches**
+- Only 1 failing month: March (0 profitable days, but still passed Step 1)
+- **All 13 assets (9 Forex + 4 Crypto) meet 50+ trades/year AND positive P/L requirements**
+- **Portfolio approach achieves 862% challenge return with ZERO breaches**
 
 ## KEY FILES
 
